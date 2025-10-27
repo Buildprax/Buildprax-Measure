@@ -1,0 +1,5 @@
+[[redirects]]
+  from = "/download"
+  to = "/downloads/BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"
+  status = 200
+  headers = {Content-Type = "application/octet-stream", Content-Disposition = "attachment; filename=\"BUILDPRAX-MEASURE-PRO-1.0.0-arm64.dmg\""}

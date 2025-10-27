@@ -1,0 +1,95 @@
+# BUILDPRAX MEASURE PRO - Installation Guide
+
+## Quick Start (macOS)
+
+### Option 1: Automatic Installation (Recommended)
+
+1. **Download the files:**
+   - `BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg`
+   - `install-app.sh`
+   - `INSTALLATION_INSTRUCTIONS.md`
+
+2. **Open Terminal:**
+   - Press `Command (⌘) + Spacebar`
+   - Type `Terminal` and press `Enter`
+
+3. **Navigate to your download folder:**
+   ```bash
+   cd ~/Downloads
+   ```
+
+4. **Make the script executable:**
+   ```bash
+   chmod +x install-app.sh
+   ```
+
+5. **Run the installation:**
+   ```bash
+   ./install-app.sh
+   ```
+
+6. **Launch the app:**
+   - Find "BUILDPRAX MEASURE PRO" in your Applications folder
+   - Double-click to launch
+
+### Option 2: Manual Installation
+
+1. **Remove quarantine attribute:**
+   ```bash
+   xattr -d com.apple.quarantine "BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"
+   ```
+
+2. **Open the DMG:**
+   - Double-click the `.dmg` file
+
+3. **Drag to Applications:**
+   - Drag the app icon to your Applications folder
+
+4. **Remove quarantine from app:**
+   ```bash
+   xattr -d com.apple.quarantine "/Applications/BUILDPRAX MEASURE PRO.app"
+   ```
+
+## Troubleshooting
+
+### "App is damaged and should be moved to the Trash"
+This is a macOS security message. The installation steps above will fix this.
+
+### "Developer cannot be verified"
+Right-click the app and select "Open" the first time you launch it.
+
+### Permission Denied
+Add `sudo` before commands that require elevated permissions:
+```bash
+sudo ./install-app.sh
+```
+
+## System Requirements
+
+- **macOS:** 10.15 (Catalina) or later
+- **RAM:** 4GB minimum, 8GB recommended
+- **Storage:** 200MB free space
+- **Architecture:** Apple Silicon (M1/M2) or Intel
+
+## Getting Started
+
+1. **Launch the app** from your Applications folder
+2. **Create a new project** using the "New" button
+3. **Upload a PDF drawing** using the file input
+4. **Set the scale** by clicking two points and entering the real distance
+5. **Start measuring** using the Measure tool
+6. **Export to Excel** when finished
+
+## Support
+
+- **Email:** support@buildprax.com
+- **Documentation:** [View full documentation](docs.html)
+- **Installation Help:** This guide
+
+## License
+
+This software is protected by copyright. The 14-day free trial allows full access to all features. After the trial period, a license key is required for continued use.
+
+---
+
+*BUILDPRAX MEASURE PRO - Professional measurement software for construction estimating*
