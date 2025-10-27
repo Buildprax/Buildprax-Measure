@@ -35,7 +35,7 @@
                 <h2>Professional Measurement Software for Construction</h2>
                 <p>Transform your PDF drawings into accurate quantity take-offs with our intuitive measurement tool. Set scale, measure areas, lengths, and counts, then export everything to Excel.</p>
                 <div class="hero-buttons">
-                    <a href="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg" class="btn btn-primary" download="BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg">Download Free Trial</a>
+                    <button onclick="showDownloadModal()" class="btn btn-primary">Download Free Trial</button>
                     <a href="#features" class="btn btn-secondary">Learn More</a>
                 </div>
             </div>
@@ -95,9 +95,9 @@
                     <div class="download-icon">🍎</div>
                     <h3>macOS</h3>
                     <p>Compatible with macOS 10.15+</p>
-                    <a href="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg" class="btn btn-download" download="BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg">
+                    <button onclick="showDownloadModal()" class="btn btn-download">
                         Download Now
-                    </a>
+                    </button>
                     <small>125 MB • Includes installation guide</small>
                 </div>
                 
@@ -134,7 +134,7 @@
                         <li>Excel export</li>
                         <li>Email support</li>
                     </ul>
-                    <a href="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg" class="btn btn-outline" download="BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg">Start Free Trial</a>
+                    <button onclick="showDownloadModal()" class="btn btn-outline">Start Free Trial</button>
                 </div>
                 
                 <div class="pricing-card featured">
@@ -150,7 +150,7 @@
                         <li>Future updates</li>
                         <li>Commercial use</li>
                     </ul>
-                    <a href="#contact" class="btn btn-primary">Get License Key</a>
+                    <button onclick="showPaymentModal()" class="btn btn-primary">Get License Key</button>
                 </div>
                 
                 <div class="pricing-card">
@@ -232,6 +232,33 @@
         </div>
     </footer>
 
+    <!-- Download Modal -->
+    <div id="downloadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDownloadModal()">&times;</span>
+            <h2>Download BUILDPRAX MEASURE PRO</h2>
+            <p>Enter your email to get the download link and start your 14-day free trial.</p>
+            <form id="downloadForm">
+                <input type="email" id="userEmail" placeholder="Enter your email address" required>
+                <button type="submit" class="btn btn-primary">Get Download Link</button>
+            </form>
+            <p class="modal-note">We'll send you the download link and keep you updated on new features.</p>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePaymentModal()">&times;</span>
+            <h2>Upgrade to Pro License</h2>
+            <p>Get unlimited access to all features for $299/year</p>
+            <div id="paypal-button-container"></div>
+            <p class="modal-note">After payment, you'll receive your license key via email.</p>
+        </div>
+    </div>
+
+    <!-- PayPal SDK -->
+    <script src="https://www.paypal.com/sdk/js?client-id=AaDDmxNeKnylfW0LnrkmJReffLqh8WhE_iznE7S_HP2I22sQwKwjoBMnpjU-0zO-CnvS01-QiqCpmbB-&currency=USD"></script>
     <script src="script.js"></script>
 </body>
 </html>
