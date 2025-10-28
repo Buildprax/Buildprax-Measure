@@ -35,7 +35,7 @@
                 <h2>Professional Measurement Software for Construction</h2>
                 <p>Transform your PDF drawings into accurate quantity take-offs with our intuitive measurement tool. Set scale, measure areas, lengths, and counts, then export everything to Excel.</p>
                 <div class="hero-buttons">
-                    <button onclick="showDownloadModal()" class="btn btn-primary">Download Free Trial</button>
+                    <button onclick="showRegistrationModal()" class="btn btn-primary">Download Free Trial</button>
                     <a href="#features" class="btn btn-secondary">Learn More</a>
                 </div>
             </div>
@@ -95,7 +95,7 @@
                     <div class="download-icon">🍎</div>
                     <h3>macOS</h3>
                     <p>Compatible with macOS 10.15+</p>
-                    <button onclick="showDownloadModal()" class="btn btn-download">
+                    <button onclick="showRegistrationModal()" class="btn btn-download">
                         Download Now
                     </button>
                     <small>125 MB • Includes installation guide</small>
@@ -108,7 +108,7 @@
                     <button class="btn btn-disabled" disabled>
                         Download for Windows
                     </button>
-                    <small>Available Q2 2024</small>
+                    <small>Available Q2 2025</small>
                 </div>
             </div>
 
@@ -134,7 +134,7 @@
                         <li>Excel export</li>
                         <li>Email support</li>
                     </ul>
-                    <button onclick="showDownloadModal()" class="btn btn-outline">Start Free Trial</button>
+                    <button onclick="showRegistrationModal()" class="btn btn-outline">Start Free Trial</button>
                 </div>
                 
                 <div class="pricing-card featured">
@@ -163,7 +163,7 @@
                         <li>Centralized billing</li>
                         <li>Team support</li>
                     </ul>
-                    <a href="#contact" class="btn btn-outline">Contact Sales</a>
+                    <a href="mailto:support@buildprax.com?subject=Team License Inquiry&body=Hi, I'm interested in a team license for BUILDPRAX MEASURE PRO. Please send me more information." class="btn btn-outline">Contact Sales</a>
                 </div>
             </div>
         </div>
@@ -182,7 +182,7 @@
                 <div class="support-card">
                     <h3>📖 Documentation</h3>
                     <p>Step-by-step guides and tutorials</p>
-                    <a href="docs.html" class="btn btn-outline">View Docs</a>
+                    <a href="installation-guide.html" class="btn btn-outline">Installation Guide</a>
                 </div>
                 <div class="support-card">
                     <h3>💬 Live Chat</h3>
@@ -214,15 +214,15 @@
                     <ul>
                         <li><a href="mailto:support@buildprax.com">Email Support</a></li>
                         <li><a href="installation-guide.html">Installation Guide</a></li>
-                        <li><a href="docs.html">Documentation</a></li>
+                        <li><a href="mailto:support@buildprax.com">Contact Us</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
                     <h4>Company</h4>
                     <ul>
-                        <li><a href="about.html">About</a></li>
-                        <li><a href="privacy.html">Privacy Policy</a></li>
-                        <li><a href="terms.html">Terms of Service</a></li>
+                        <li><a href="mailto:support@buildprax.com">About</a></li>
+                        <li><a href="mailto:support@buildprax.com">Privacy Policy</a></li>
+                        <li><a href="mailto:support@buildprax.com">Terms of Service</a></li>
                     </ul>
                 </div>
             </div>
@@ -232,17 +232,78 @@
         </div>
     </footer>
 
-    <!-- Download Modal -->
-    <div id="downloadModal" class="modal">
+    <!-- Registration Modal -->
+    <div id="registrationModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeDownloadModal()">&times;</span>
+            <span class="close" onclick="closeRegistrationModal()">&times;</span>
             <h2>Download BUILDPRAX MEASURE PRO</h2>
-            <p>Enter your email to get the download link and start your 14-day free trial.</p>
-            <form id="downloadForm">
-                <input type="email" id="userEmail" placeholder="Enter your email address" required>
+            <p>Complete the form below to start your 14-day free trial. You'll receive the download link immediately.</p>
+            
+            <form id="registrationForm" action="https://formspree.io/f/xblpgwzy" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" name="lastName" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="company">Company Name</label>
+                        <input type="text" id="company" name="company">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="country">Country *</label>
+                    <select id="country" name="country" required>
+                        <option value="">Select Country</option>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="AU">Australia</option>
+                        <option value="NZ">New Zealand</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="ZA">South Africa</option>
+                        <option value="DE">Germany</option>
+                        <option value="FR">France</option>
+                        <option value="NL">Netherlands</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="source">How did you hear about us?</label>
+                    <select id="source" name="source">
+                        <option value="">Select Source</option>
+                        <option value="google">Google Search</option>
+                        <option value="social">Social Media</option>
+                        <option value="referral">Referral</option>
+                        <option value="trade-show">Trade Show</option>
+                        <option value="magazine">Industry Magazine</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <input type="hidden" name="formType" value="trial_registration">
+                <input type="hidden" name="downloadUrl" value="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg">
+                
                 <button type="submit" class="btn btn-primary">Get Download Link</button>
             </form>
-            <p class="modal-note">We'll send you the download link and keep you updated on new features.</p>
+            
+            <p class="modal-note">By downloading, you agree to our terms of service. We'll send you updates about new features and improvements.</p>
         </div>
     </div>
 
@@ -252,13 +313,58 @@
             <span class="close" onclick="closePaymentModal()">&times;</span>
             <h2>Upgrade to Pro License</h2>
             <p>Get unlimited access to all features for $299/year</p>
-            <div id="paypal-button-container"></div>
-            <p class="modal-note">After payment, you'll receive your license key via email.</p>
+            
+            <form id="paymentForm">
+                <div class="payment-methods">
+                    <div class="payment-method" onclick="selectPaymentMethod('card')">
+                        <input type="radio" id="cardPayment" name="paymentMethod" value="card" checked>
+                        <label for="cardPayment">Credit/Debit Card</label>
+                        <div class="card-logos">
+                            <div class="card-logo">VISA</div>
+                            <div class="card-logo">MC</div>
+                            <div class="card-logo">AMEX</div>
+                        </div>
+                    </div>
+                    <div class="payment-method" onclick="selectPaymentMethod('paypal')">
+                        <input type="radio" id="paypalPayment" name="paymentMethod" value="paypal">
+                        <label for="paypalPayment">PayPal</label>
+                    </div>
+                </div>
+                
+                <div id="cardFields" class="card-fields">
+                    <div class="form-group">
+                        <label for="cardNumber">Card Number</label>
+                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expiryDate">Expiry Date</label>
+                            <input type="text" id="expiryDate" placeholder="MM/YY">
+                        </div>
+                        <div class="form-group">
+                            <label for="cvv">CVV</label>
+                            <input type="text" id="cvv" placeholder="123">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cardName">Name on Card</label>
+                        <input type="text" id="cardName" placeholder="John Doe">
+                    </div>
+                </div>
+                
+                <div id="paypalFields" class="paypal-fields" style="display: none;">
+                    <div id="paypal-button-container"></div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Complete Purchase - $299</button>
+            </form>
+            
+            <p class="modal-note">After payment, you'll receive your license key via email within 5 minutes.</p>
         </div>
     </div>
 
     <!-- PayPal SDK -->
-    <script src="https://www.paypal.com/sdk/js?client-id=AaDDmxNeKnylfW0LnrkmJReffLqh8WhE_iznE7S_HP2I22sQwKwjoBMnpjU-0zO-CnvS01-QiqCpmbB-&currency=USD"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD"></script>
     <script src="script.js"></script>
 </body>
 </html>
