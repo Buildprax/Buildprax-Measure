@@ -121,20 +121,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             localStorage.setItem('customerData', JSON.stringify(customerData));
             
-            // Submit to Formspree
-            fetch('https://formspree.io/f/xblpgwzy', {
+            // Send to our SendGrid function
+            fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {                
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    firstName: firstName,
-                    lastName: lastName,
-                    email: email,
-                    company: company,
-                    phone: phone,
-                    message: 'New trial registration from website',
-                    _subject: 'New BUILDPRAX MEASURE PRO Trial Registration'
+                    action: 'trial_registration',
+                    firstName,
+                    lastName,
+                    email,
+                    company,
+                    phone
                 })
             })
             .then(response => {
@@ -142,17 +141,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Start download immediately
                     startDownload();
                     closeRegistrationModal();
-                    showMessage('Registration successful! Download starting...', 'success');
+                    showMessage('Registration successful! Download starting... Check your email for welcome instructions.', 'success');
                 } else {
                     showMessage('Registration failed. Please try again.', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                // Still start download even if form submission fails
+                // Still start download even if send fails
                 startDownload();
                 closeRegistrationModal();
-                showMessage('Download starting...', 'success');
+                showMessage('Download starting... If no email arrives, please contact support@buildprax.com.', 'success');
             });
         });
     }
@@ -290,7 +289,7 @@ function sendLicenseKey(email, paymentDetails) {
     });
     localStorage.setItem('licenses', JSON.stringify(licenses));
     
-    // Send notification to support
+    // Send notification to support (keep for now)
     fetch('https://formspree.io/f/xblpgwzy', {
         method: 'POST',
         headers: {
