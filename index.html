@@ -3,545 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BUILDPRAX MEASURE PRO - Professional Construction Software</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f8f9fa;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-            color: white;
-            padding: 1rem 0;
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 2rem;
-        }
-        
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        
-        .logo img {
-            height: 50px;
-            width: auto;
-            filter: brightness(1.2) contrast(1.1);
-        }
-        
-        .logo-text h1 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin: 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        
-        .logo-text p {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            margin: 0;
-        }
-        
-        .nav ul {
-            list-style: none;
-            display: flex;
-            gap: 2rem;
-        }
-        
-        .nav a {
-            color: white;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .nav a:hover {
-            color: #10b981;
-        }
-        
-        .main {
-            margin-top: 80px;
-        }
-        
-        .hero {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-            color: white;
-            padding: 4rem 0;
-            text-align: center;
-        }
-        
-        .hero-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-        
-        .hero h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        
-        .hero p {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
-        }
-        
-        .hero-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 1rem 2rem;
-            background: #10b981;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        
-        .btn:hover {
-            background: #059669;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-        
-        .btn-secondary {
-            background: transparent;
-            border: 2px solid #10b981;
-            color: #10b981;
-        }
-        
-        .btn-secondary:hover {
-            background: #10b981;
-            color: white;
-        }
-        
-        .btn-large {
-            padding: 1.2rem 2.5rem;
-            font-size: 1.1rem;
-        }
-        
-        .features {
-            padding: 4rem 0;
-            background: white;
-        }
-        
-        .features-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-        
-        .features h2 {
-            text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 3rem;
-            color: #1e3a8a;
-        }
-        
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-        
-        .feature-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-        
-        .feature-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .feature-card h3 {
-            color: #10b981;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-        
-        .feature-card p {
-            color: #666;
-            line-height: 1.6;
-        }
-        
-        .download {
-            padding: 4rem 0;
-            background: #f8f9fa;
-        }
-        
-        .download-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            text-align: center;
-        }
-        
-        .download h2 {
-            font-size: 2.5rem;
-            margin-bottom: 2rem;
-            color: #1e3a8a;
-        }
-        
-        .download p {
-            font-size: 1.1rem;
-            margin-bottom: 3rem;
-            color: #666;
-        }
-        
-        .download-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-        
-        .download-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .download-card h3 {
-            color: #10b981;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-        
-        .download-card p {
-            color: #666;
-            margin-bottom: 1.5rem;
-        }
-        
-        .download-card .btn {
-            width: 100%;
-            margin-top: 1rem;
-        }
-        
-        .pricing {
-            padding: 4rem 0;
-            background: white;
-        }
-        
-        .pricing-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            text-align: center;
-        }
-        
-        .pricing h2 {
-            font-size: 2.5rem;
-            margin-bottom: 2rem;
-            color: #1e3a8a;
-        }
-        
-        .pricing p {
-            font-size: 1.1rem;
-            margin-bottom: 3rem;
-            color: #666;
-        }
-        
-        .pricing-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-        
-        .pricing-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            text-align: center;
-            position: relative;
-        }
-        
-        .pricing-card.featured {
-            border: 3px solid #10b981;
-            transform: scale(1.05);
-        }
-        
-        .pricing-card h3 {
-            color: #10b981;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-        
-        .pricing-card .price {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #1e3a8a;
-            margin-bottom: 1rem;
-        }
-        
-        .pricing-card .price span {
-            font-size: 1rem;
-            color: #666;
-        }
-        
-        .pricing-card ul {
-            list-style: none;
-            margin-bottom: 2rem;
-        }
-        
-        .pricing-card li {
-            padding: 0.5rem 0;
-            color: #666;
-        }
-        
-        .pricing-card .btn {
-            width: 100%;
-        }
-        
-        .app-screenshot {
-            max-width: 100%;
-            height: auto;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-            margin: 2rem 0;
-        }
-        
-        .footer {
-            background: #0f172a;
-            color: white;
-            padding: 2rem 0;
-            text-align: center;
-        }
-        
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-        
-        .footer p {
-            margin: 0;
-            opacity: 0.8;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 2rem;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            position: relative;
-        }
-        
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            position: absolute;
-            top: 1rem;
-            right: 1.5rem;
-        }
-        
-        .close:hover {
-            color: #10b981;
-        }
-        
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #333;
-            font-weight: 500;
-        }
-        
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 1rem;
-        }
-        
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #10b981;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-        
-        .payment-methods {
-            margin-bottom: 2rem;
-        }
-        
-        .payment-method {
-            display: flex;
-            align-items: center;
-            padding: 1rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .payment-method:hover {
-            border-color: #10b981;
-        }
-        
-        .payment-method input[type="radio"] {
-            margin-right: 1rem;
-            width: auto;
-        }
-        
-        .payment-method.selected {
-            border-color: #10b981;
-            background-color: #f0fdf4;
-        }
-        
-        .card-logos {
-            display: flex;
-            gap: 0.5rem;
-            margin-left: auto;
-        }
-        
-        .card-logo {
-            width: 40px;
-            height: 25px;
-            background: #f3f4f6;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            font-weight: bold;
-            color: #666;
-        }
-        
-        .card-logo.visa {
-            background: #1a1f71;
-            color: white;
-        }
-        
-        .card-logo.mastercard {
-            background: #eb001b;
-            color: white;
-        }
-        
-        .card-logo.amex {
-            background: #006fcf;
-            color: white;
-        }
-        
-        .card-fields {
-            margin-top: 1rem;
-        }
-        
-        .card-fields .btn {
-            width: 100%;
-            margin-top: 1rem;
-        }
-        
-        .message {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-        
-        .message.success {
-            background-color: #d1fae5;
-            color: #065f46;
-            border: 1px solid #10b981;
-        }
-        
-        .message.error {
-            background-color: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #ef4444;
-        }
-        
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .hero h1 {
-                font-size: 2rem;
-            }
-            
-            .hero-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .features-grid,
-            .download-cards,
-            .pricing-cards {
-                grid-template-columns: 1fr;
-            }
-            
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <title>BUILDPRAX MEASURE PRO - Smart Quantity Take-Offs for Construction Estimating</title>
+    <meta name="description" content="Professional measurement software for construction estimating. Upload PDF drawings, set scale, perform measurements, and export to Excel.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
     <!-- Header -->
@@ -565,131 +30,156 @@
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="main">
-        <!-- Hero Section -->
-        <section class="hero">
-            <div class="hero-content">
-                <h1>Professional Measurement Software for Construction</h1>
-                <p>Transform your PDF drawings into accurate quantity take-offs with our intuitive measurement tool. Set scale, measure areas, lengths, and counts, then export everything to Excel.</p>
-                <div class="hero-buttons">
-                    <button onclick="showRegistrationModal()" class="btn btn-large">Download Free Trial</button>
-                    <a href="#features" class="btn btn-secondary btn-large">Learn More</a>
-                </div>
-                <img src="assets/app-screenshot.png" alt="BUILDPRAX MEASURE PRO Screenshot" class="app-screenshot">
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Professional Measurement Software for Construction</h1>
+            <p>Transform your PDF drawings into accurate quantity take-offs with our intuitive measurement tool. Set scale, measure areas, lengths, and counts, then export everything to Excel.</p>
+            <div class="hero-buttons">
+                <button onclick="showRegistrationModal()" class="btn btn-large">Download Free Trial</button>
+                <a href="#features" class="btn btn-secondary btn-large">Learn More</a>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <!-- Features Section -->
-        <section id="features" class="features">
-            <div class="features-content">
-                <h2>Powerful Features for Construction Professionals</h2>
-                <div class="features-grid">
-                    <div class="feature-card">
-                        <h3>📐 Accurate Measurements</h3>
-                        <p>Measure areas, lengths, and counts directly on your PDF drawings with pixel-perfect accuracy.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>📏 Scale Setting</h3>
-                        <p>Set precise scale ratios to convert measurements to real-world units automatically.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>📊 Excel Export</h3>
-                        <p>Export all measurements to Excel with organized data for easy quantity take-offs.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>🎨 Visual Organization</h3>
-                        <p>Color-code measurements and organize by categories for clear project management.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>💾 Project Management</h3>
-                        <p>Save and load projects with multiple drawings for complex construction projects.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>⚡ Fast & Reliable</h3>
-                        <p>Native desktop application with hardware-accelerated rendering for smooth performance.</p>
-                    </div>
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="features-content">
+            <h2>Powerful Features for Construction Professionals</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>📐 Accurate Measurements</h3>
+                    <p>Measure areas, lengths, and counts directly on your PDF drawings with pixel-perfect accuracy.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📏 Scale Setting</h3>
+                    <p>Set precise scale ratios to convert measurements to real-world units automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 Excel Export</h3>
+                    <p>Export all measurements to Excel with organized data for easy quantity take-offs.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🎨 Visual Organization</h3>
+                    <p>Color-code measurements and organize by categories for clear project management.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💾 Project Management</h3>
+                    <p>Save and load projects with multiple drawings for complex construction projects.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚡ Fast & Reliable</h3>
+                    <p>Native desktop application with hardware-accelerated rendering for smooth performance.</p>
                 </div>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <!-- Download Section -->
-        <section id="download" class="download">
-            <div class="download-content">
-                <h2>Download BUILDPRAX MEASURE PRO</h2>
-                <p>Start your 14-day free trial today. No credit card required.</p>
+    <!-- Download Section -->
+    <section id="download" class="download">
+        <div class="download-content">
+            <h2>Download BUILDPRAX MEASURE PRO</h2>
+            <p>Start your 14-day free trial today. No credit card required.</p>
+            
+            <div class="download-cards">
+                <div class="download-card">
+                    <h3>🍎 macOS</h3>
+                    <p>Compatible with macOS 10.15+</p>
+                    <button onclick="showRegistrationModal()" class="btn">
+                        Download Now
+                    </button>
+                    <small>125 MB • Includes installation guide</small>
+                </div>
                 
-                <div class="download-cards">
-                    <div class="download-card">
-                        <h3>🍎 macOS</h3>
-                        <p>Compatible with macOS 10.15+</p>
-                        <button onclick="showRegistrationModal()" class="btn">
-                            Download Now
-                        </button>
-                        <small>125 MB • Includes installation guide</small>
-                    </div>
-                    
-                    <div class="download-card">
-                        <h3>🪟 Windows</h3>
-                        <p>Coming Soon</p>
-                        <button class="btn" disabled>
-                            Download for Windows
-                        </button>
-                        <small>Available Q2 2025</small>
-                    </div>
+                <div class="download-card">
+                    <h3>🪟 Windows</h3>
+                    <p>Coming Soon</p>
+                    <button class="btn" disabled>
+                        Download for Windows
+                    </button>
+                    <small>Available Q2 2025</small>
                 </div>
             </div>
-        </section>
 
-        <!-- Pricing Section -->
-        <section id="pricing" class="pricing">
-            <div class="pricing-content">
-                <h2>Simple, Transparent Pricing</h2>
-                <div class="pricing-cards">
-                    <div class="pricing-card">
-                        <h3>Free Trial</h3>
-                        <div class="price">$0</div>
-                        <p>14 days full access</p>
-                        <ul>
-                            <li>All measurement features</li>
-                            <li>Unlimited projects</li>
-                            <li>Excel export</li>
-                            <li>Email support</li>
-                        </ul>
-                        <button onclick="showRegistrationModal()" class="btn btn-secondary">Start Free Trial</button>
-                    </div>
-                    
-                    <div class="pricing-card featured">
-                        <h3>Pro License</h3>
-                        <div class="price">$299<span>/year</span></div>
-                        <p>Full access forever</p>
-                        <ul>
-                            <li>All measurement features</li>
-                            <li>Unlimited projects</li>
-                            <li>Excel export</li>
-                            <li>Priority support</li>
-                            <li>Future updates</li>
-                            <li>Commercial use</li>
-                        </ul>
-                        <button onclick="showPaymentModal()" class="btn">Get License Key</button>
-                    </div>
-                    
-                    <div class="pricing-card">
-                        <h3>Team License</h3>
-                        <div class="price">$199<span>/year</span></div>
-                        <p>Per additional user</p>
-                        <ul>
-                            <li>All Pro features</li>
-                            <li>Volume discounts</li>
-                            <li>Centralized billing</li>
-                            <li>Team support</li>
-                        </ul>
-                        <a href="mailto:support@buildprax.com?subject=Team License Inquiry&body=Hi, I'm interested in a team license for BUILDPRAX MEASURE PRO. Please send me more information." class="btn btn-secondary">Contact Sales</a>
-                    </div>
+            <div class="installation-help">
+                <h3>Installation Help</h3>
+                <p>Having trouble installing? Follow our <a href="installation-guide.html">step-by-step installation guide</a> or <a href="mailto:support@buildprax.com">contact support</a>.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing">
+        <div class="pricing-content">
+            <h2>Simple, Transparent Pricing</h2>
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <h3>Free Trial</h3>
+                    <div class="price">$0</div>
+                    <p>14 days full access</p>
+                    <ul>
+                        <li>All measurement features</li>
+                        <li>Unlimited projects</li>
+                        <li>Excel export</li>
+                        <li>Email support</li>
+                    </ul>
+                    <button onclick="showRegistrationModal()" class="btn btn-secondary">Start Free Trial</button>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <h3>Pro License</h3>
+                    <div class="price">$299<span>/year</span></div>
+                    <p>Full access forever</p>
+                    <ul>
+                        <li>All measurement features</li>
+                        <li>Unlimited projects</li>
+                        <li>Excel export</li>
+                        <li>Priority support</li>
+                        <li>Future updates</li>
+                        <li>Commercial use</li>
+                    </ul>
+                    <button onclick="showPaymentModal()" class="btn">Get License Key</button>
+                </div>
+                
+                <div class="pricing-card">
+                    <h3>Team License</h3>
+                    <div class="price">$199<span>/year</span></div>
+                    <p>Per additional user</p>
+                    <ul>
+                        <li>All Pro features</li>
+                        <li>Volume discounts</li>
+                        <li>Centralized billing</li>
+                        <li>Team support</li>
+                    </ul>
+                    <a href="mailto:support@buildprax.com?subject=Team License Inquiry&body=Hi, I'm interested in a team license for BUILDPRAX MEASURE PRO. Please send me more information." class="btn btn-secondary">Contact Sales</a>
                 </div>
             </div>
-        </section>
-    </main>
+        </div>
+    </section>
+
+    <!-- Support Section -->
+    <section id="support" class="support">
+        <div class="support-content">
+            <h2>Need Help?</h2>
+            <div class="support-cards">
+                <div class="support-card">
+                    <h3>📧 Email Support</h3>
+                    <p>Get help from our technical team</p>
+                    <a href="mailto:support@buildprax.com" class="btn btn-secondary">support@buildprax.com</a>
+                </div>
+                <div class="support-card">
+                    <h3>📖 Documentation</h3>
+                    <p>Step-by-step guides and tutorials</p>
+                    <a href="installation-guide.html" class="btn btn-secondary">Installation Guide</a>
+                </div>
+                <div class="support-card">
+                    <h3>💬 Live Chat</h3>
+                    <p>Coming soon - instant support</p>
+                    <button class="btn" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Footer -->
     <footer class="footer">
@@ -703,7 +193,7 @@
         <div class="modal-content">
             <span class="close" onclick="closeRegistrationModal()">&times;</span>
             <h2>Download BUILDPRAX MEASURE PRO</h2>
-            <p>Complete the form below to start your 14-day free trial.</p>
+            <p>Complete the form below to start your 14-day free trial. You'll receive the download link immediately.</p>
             
             <form id="registrationForm">
                 <div class="form-row">
@@ -722,18 +212,59 @@
                     <input type="email" id="email" name="email" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="company">Company Name</label>
-                    <input type="text" id="company" name="company">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="company">Company Name</label>
+                        <input type="text" id="company" name="company">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone">
+                    </div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="phone">Phone Number</label>
-                    <input type="tel" id="phone" name="phone">
+                    <label for="addressLine1">Address line 1</label>
+                    <input type="text" id="addressLine1" name="addressLine1" placeholder="Street address, unit, etc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="country">Country *</label>
+                    <select id="country" name="country" required>
+                        <option value="">Select Country</option>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="AU">Australia</option>
+                        <option value="NZ">New Zealand</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="ZA">South Africa</option>
+                        <option value="DE">Germany</option>
+                        <option value="FR">France</option>
+                        <option value="NL">Netherlands</option>
+                        <option value="other">Other</option>
+                    </select>
                 </div>
                 
-                <button type="submit" class="btn">Get Download Link</button>
+                <div class="form-group">
+                    <label for="source">How did you hear about us?</label>
+                    <select id="source" name="source">
+                        <option value="">Select Source</option>
+                        <option value="google">Google Search</option>
+                        <option value="social">Social Media</option>
+                        <option value="referral">Referral</option>
+                        <option value="trade-show">Trade Show</option>
+                        <option value="magazine">Industry Magazine</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <input type="hidden" name="formType" value="trial_registration">
+                <input type="hidden" name="downloadUrl" value="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg">
+                
+                <button type="submit" class="btn btn-primary">Get Download Link</button>
             </form>
+            
+            <p class="modal-note">By downloading, you agree to our terms of service. We'll send you updates about new features and improvements.</p>
         </div>
     </div>
 
@@ -750,9 +281,9 @@
                         <input type="radio" id="cardPayment" name="paymentMethod" value="card" checked>
                         <label for="cardPayment">Credit/Debit Card</label>
                         <div class="card-logos">
-                            <div class="card-logo visa">VISA</div>
-                            <div class="card-logo mastercard">MC</div>
-                            <div class="card-logo amex">AMEX</div>
+                            <img src="https://img.icons8.com/color/48/visa.png" alt="Visa" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
+                            <img src="https://img.icons8.com/color/48/mastercard.png" alt="Mastercard" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
+                            <img src="https://img.icons8.com/color/48/amex.png" alt="American Express" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
                         </div>
                     </div>
                     <div class="payment-method" onclick="selectPaymentMethod('paypal')">
@@ -785,333 +316,13 @@
                 
                 <div id="paypal-button-container"></div>
             </form>
+            
+            <p class="modal-note">After payment, you'll receive your license key via email within 5 minutes.</p>
         </div>
     </div>
 
     <!-- PayPal SDK -->
     <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD"></script>
-    <script>
-        function showRegistrationModal() {
-            document.getElementById('registrationModal').style.display = 'block';
-        }
-
-        function closeRegistrationModal() {
-            document.getElementById('registrationModal').style.display = 'none';
-        }
-
-        function showPaymentModal() {
-            document.getElementById('paymentModal').style.display = 'block';
-            initializePayPalButton();
-        }
-
-        function closePaymentModal() {
-            document.getElementById('paymentModal').style.display = 'none';
-        }
-
-        // Close modals when clicking outside
-        window.onclick = function(event) {
-            const registrationModal = document.getElementById('registrationModal');
-            const paymentModal = document.getElementById('paymentModal');
-            
-            if (event.target === registrationModal) {
-                closeRegistrationModal();
-            }
-            if (event.target === paymentModal) {
-                closePaymentModal();
-            }
-        }
-
-        // Smooth scrolling for navigation
-        document.querySelectorAll('.nav a[href^="#"]').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href');
-                const targetSection = document.querySelector(targetId);
-                if (targetSection) {
-                    targetSection.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // Registration Form Handler
-        document.getElementById('registrationForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const email = document.getElementById('email').value;
-            const company = document.getElementById('company').value;
-            const phone = document.getElementById('phone').value;
-            
-            if (!firstName || !lastName || !email) {
-                showMessage('Please fill in all required fields.', 'error');
-                return;
-            }
-            
-            // Store customer data
-            const customerData = {
-                firstName: firstName,
-                lastName: lastName,
-                email: email,
-                company: company,
-                phone: phone,
-                timestamp: new Date().toISOString(),
-                type: 'trial_registration'
-            };
-            
-            localStorage.setItem('customerData', JSON.stringify(customerData));
-            
-            // Submit to Formspree
-            fetch('https://formspree.io/f/xblpgwzy', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    firstName: firstName,
-                    lastName: lastName,
-                    email: email,
-                    company: company,
-                    phone: phone,
-                    message: 'New trial registration from website',
-                    _subject: 'New BUILDPRAX MEASURE PRO Trial Registration',
-                    _replyto: email
-                })
-            })
-            .then(response => {
-                if (response.ok) {
-                    // Start download immediately
-                    startDownload();
-                    closeRegistrationModal();
-                    showMessage('Registration successful! Download starting... Check your email for welcome instructions.', 'success');
-                } else {
-                    showMessage('Registration failed. Please try again.', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                // Still start download even if form submission fails
-                startDownload();
-                closeRegistrationModal();
-                showMessage('Download starting...', 'success');
-            });
-        });
-
-        // Start Download Function
-        function startDownload() {
-            const downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
-            const link = document.createElement('a');
-            link.href = downloadLink;
-            link.download = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
-            link.click();
-            
-            // Track download
-            const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
-            downloads.push({
-                timestamp: new Date().toISOString(),
-                type: 'trial_download'
-            });
-            localStorage.setItem('downloads', JSON.stringify(downloads));
-        }
-
-        // Payment Method Selection
-        function selectPaymentMethod(method) {
-            // Remove selected class from all methods
-            document.querySelectorAll('.payment-method').forEach(el => {
-                el.classList.remove('selected');
-            });
-            
-            // Add selected class to clicked method
-            event.currentTarget.classList.add('selected');
-            
-            // Show/hide card fields based on selection
-            const cardFields = document.getElementById('cardFields');
-            const paypalContainer = document.getElementById('paypal-button-container');
-            
-            if (method === 'card') {
-                cardFields.style.display = 'block';
-                paypalContainer.style.display = 'none';
-            } else {
-                cardFields.style.display = 'none';
-                paypalContainer.style.display = 'block';
-            }
-        }
-
-        // PayPal Button Initialization
-        function initializePayPalButton() {
-            // Clear any existing buttons
-            const container = document.getElementById('paypal-button-container');
-            container.innerHTML = '';
-            
-            paypal.Buttons({
-                createOrder: function(data, actions) {
-                    return actions.order.create({
-                        purchase_units: [{
-                            amount: {
-                                value: '299.00',
-                                currency_code: 'USD'
-                            },
-                            description: 'BUILDPRAX MEASURE PRO - Pro License (1 Year)'
-                        }]
-                    });
-                },
-                onApprove: function(data, actions) {
-                    return actions.order.capture().then(function(details) {
-                        // Payment successful
-                        console.log('Payment completed:', details);
-                        
-                        // Get customer data
-                        const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
-                        const userEmail = customerData.email || details.payer.email_addresses[0].email_address;
-                        
-                        // Generate and send license key
-                        sendLicenseKey(userEmail, details);
-                        
-                        // Close modal
-                        closePaymentModal();
-                        
-                        // Show success message
-                        showMessage('Payment successful! Your license key has been sent to your email.', 'success');
-                    });
-                },
-                onError: function(err) {
-                    console.error('PayPal error:', err);
-                    showMessage('Payment failed. Please try again.', 'error');
-                }
-            }).render('#paypal-button-container');
-        }
-
-        // Handle Card Payment (Simulated)
-        function handleCardPayment() {
-            const cardNumber = document.getElementById('cardNumber').value;
-            const expiryDate = document.getElementById('expiryDate').value;
-            const cvv = document.getElementById('cvv').value;
-            const cardName = document.getElementById('cardName').value;
-            
-            // Basic validation
-            if (!cardNumber || !expiryDate || !cvv || !cardName) {
-                showMessage('Please fill in all card details.', 'error');
-                return;
-            }
-            
-            // Simulate payment processing
-            showMessage('Processing payment...', 'success');
-            
-            setTimeout(() => {
-                // Simulate successful payment
-                const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
-                const userEmail = customerData.email || 'customer@example.com';
-                
-                // Generate and send license key
-                sendLicenseKey(userEmail, { id: 'card_' + Date.now() });
-                
-                // Close modal
-                closePaymentModal();
-                
-                // Show success message
-                showMessage('Payment successful! Your license key has been sent to your email.', 'success');
-            }, 2000);
-        }
-
-        // Send License Key Function
-        function sendLicenseKey(email, paymentDetails) {
-            // Generate license key
-            const licenseKey = generateLicenseKey();
-            
-            // Store license key
-            const licenses = JSON.parse(localStorage.getItem('licenses') || '[]');
-            licenses.push({
-                email: email,
-                licenseKey: licenseKey,
-                timestamp: new Date().toISOString(),
-                paymentId: paymentDetails.id,
-                amount: '299.00'
-            });
-            localStorage.setItem('licenses', JSON.stringify(licenses));
-            
-            // Send notification to support
-            fetch('https://formspree.io/f/xblpgwzy', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: email,
-                    licenseKey: licenseKey,
-                    paymentId: paymentDetails.id,
-                    message: `New license key generated for ${email}`,
-                    _subject: 'BUILDPRAX MEASURE PRO - New License Key Generated',
-                    _replyto: email
-                })
-            })
-            .then(response => {
-                if (response.ok) {
-                    console.log('License key notification sent to support');
-                }
-            })
-            .catch(error => {
-                console.error('Error sending license key notification:', error);
-            });
-            
-            console.log('License key generated:', licenseKey);
-        }
-
-        // Generate License Key Function
-        function generateLicenseKey() {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let result = '';
-            for (let i = 0; i < 16; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-                if (i === 3 || i === 7 || i === 11) {
-                    result += '-';
-                }
-            }
-            return result;
-        }
-
-        // Show Message Function
-        function showMessage(text, type) {
-            // Remove existing messages
-            const existingMessage = document.querySelector('.message');
-            if (existingMessage) {
-                existingMessage.remove();
-            }
-            
-            // Create new message
-            const message = document.createElement('div');
-            message.className = `message ${type}`;
-            message.textContent = text;
-            
-            // Insert at top of body
-            document.body.insertBefore(message, document.body.firstChild);
-            
-            // Remove after 5 seconds
-            setTimeout(() => {
-                message.remove();
-            }, 5000);
-        }
-
-        // Format Card Number
-        function formatCardNumber(input) {
-            let value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
-            let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
-            if (formattedValue.length > 19) {
-                formattedValue = formattedValue.substr(0, 19);
-            }
-            input.value = formattedValue;
-        }
-
-        // Format Expiry Date
-        function formatExpiryDate(input) {
-            let value = input.value.replace(/\D/g, '');
-            if (value.length >= 2) {
-                value = value.substring(0, 2) + '/' + value.substring(2, 4);
-            }
-            input.value = value;
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>

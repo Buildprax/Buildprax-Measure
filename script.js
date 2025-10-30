@@ -101,6 +101,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = document.getElementById('email').value;
             const company = document.getElementById('company').value;
             const phone = document.getElementById('phone').value;
+            const addressLine1 = document.getElementById('addressLine1') ? document.getElementById('addressLine1').value : '';
+            const country = document.getElementById('country') ? document.getElementById('country').value : '';
             
             // Basic validation
             if (!firstName || !lastName || !email) {
@@ -121,19 +123,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             localStorage.setItem('customerData', JSON.stringify(customerData));
             
-            // Send to our SendGrid function
-            fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {                
+            // Submit to Formspree
+            fetch('/api/send-email', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    action: 'trial_registration',
-                    firstName,
-                    lastName,
-                    email,
-                    company,
-                    phone
+                    firstName: firstName,
+                    lastName: lastName,
+                email: email,
+                company: company,
+                phone: phone,
+                addressLine1: addressLine1,
+                country: country,
+                action: 'trial_registration'
                 })
             })
             .then(response => {
@@ -141,17 +145,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Start download immediately
                     startDownload();
                     closeRegistrationModal();
-                    showMessage('Registration successful! Download starting... Check your email for welcome instructions.', 'success');
+                    showMessage('Registration successful! Download starting...', 'success');
                 } else {
                     showMessage('Registration failed. Please try again.', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                // Still start download even if send fails
+                // Still start download even if form submission fails
                 startDownload();
                 closeRegistrationModal();
-                showMessage('Download starting... If no email arrives, please contact support@buildprax.com.', 'success');
+                showMessage('Download starting...', 'success');
             });
         });
     }
@@ -289,8 +293,8 @@ function sendLicenseKey(email, paymentDetails) {
     });
     localStorage.setItem('licenses', JSON.stringify(licenses));
     
-    // Send notification to support (keep for now)
-    fetch('https://formspree.io/f/xblpgwzy', {
+    // Send notification to support
+    fetch('/api/send-email', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
