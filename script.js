@@ -123,8 +123,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             localStorage.setItem('customerData', JSON.stringify(customerData));
             
-            // Submit to Formspree
-            fetch('/api/send-email', {
+            // Submit to SendGrid function
+            fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Start download immediately
                     startDownload();
                     closeRegistrationModal();
-                    showMessage('Registration successful! Download starting...', 'success');
+                    showMessage('Registration successful! Download starting... Check your email for welcome instructions.', 'success');
                 } else {
                     showMessage('Registration failed. Please try again.', 'error');
                 }
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Still start download even if form submission fails
                 startDownload();
                 closeRegistrationModal();
-                showMessage('Download starting...', 'success');
+                showMessage('Download starting... If no email arrives, please contact support@buildprax.com.', 'success');
             });
         });
     }
