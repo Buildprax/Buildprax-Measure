@@ -1,0 +1,1 @@
+{\n  "name": "buildprax-send-email",\n  "version": "1.0.0",\n  "type": "module",\n  "dependencies": {\n    "@sendgrid/mail": "^8.1.0"\n  }\n}\n
