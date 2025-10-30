@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BUILDPRAX MEASURE PRO - Smart Quantity Take-Offs for Construction Estimating</title>
+    <meta name="description" content="Professional measurement software for construction estimating. Upload PDF drawings, set scale, perform measurements, and export to Excel.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="assets/logo.png" alt="BUILDPRAX Logo">
+                <div class="logo-text">
+                    <h1>BUILDPRAX MEASURE PRO</h1>
+                    <p>Smart Quantity Take-Offs for Construction Estimating</p>
+                </div>
+            </div>
+            <nav class="nav">
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#download">Download</a></li>
+                    <li><a href="#pricing">Pricing</a></li>
+                    <li><a href="#support">Support</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Professional Measurement Software for Construction</h1>
+            <p>Transform your PDF drawings into accurate quantity take-offs with our intuitive measurement tool. Set scale, measure areas, lengths, and counts, then export everything to Excel.</p>
+            <div class="hero-buttons">
+                <button onclick="showRegistrationModal()" class="btn btn-large">Download Free Trial</button>
+                <a href="#features" class="btn btn-secondary btn-large">Learn More</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="features-content">
+            <h2>Powerful Features for Construction Professionals</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>📐 Accurate Measurements</h3>
+                    <p>Measure areas, lengths, and counts directly on your PDF drawings with pixel-perfect accuracy.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📏 Scale Setting</h3>
+                    <p>Set precise scale ratios to convert measurements to real-world units automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 Excel Export</h3>
+                    <p>Export all measurements to Excel with organized data for easy quantity take-offs.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🎨 Visual Organization</h3>
+                    <p>Color-code measurements and organize by categories for clear project management.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💾 Project Management</h3>
+                    <p>Save and load projects with multiple drawings for complex construction projects.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚡ Fast & Reliable</h3>
+                    <p>Native desktop application with hardware-accelerated rendering for smooth performance.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="download">
+        <div class="download-content">
+            <h2>Download BUILDPRAX MEASURE PRO</h2>
+            <p>Start your 14-day free trial today. No credit card required.</p>
+            
+            <div class="download-cards">
+                <div class="download-card">
+                    <h3>🍎 macOS</h3>
+                    <p>Compatible with macOS 10.15+</p>
+                    <button onclick="showRegistrationModal()" class="btn">
+                        Download Now
+                    </button>
+                    <small>125 MB • Includes installation guide</small>
+                </div>
+                
+                <div class="download-card">
+                    <h3>🪟 Windows</h3>
+                    <p>Coming Soon</p>
+                    <button class="btn" disabled>
+                        Download for Windows
+                    </button>
+                    <small>Available Q2 2025</small>
+                </div>
+            </div>
+
+            <div class="installation-help">
+                <h3>Installation Help</h3>
+                <p>Having trouble installing? Follow our <a href="installation-guide.html">step-by-step installation guide</a> or <a href="mailto:support@buildprax.com">contact support</a>.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing">
+        <div class="pricing-content">
+            <h2>Simple, Transparent Pricing</h2>
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <h3>Free Trial</h3>
+                    <div class="price">$0</div>
+                    <p>14 days full access</p>
+                    <ul>
+                        <li>All measurement features</li>
+                        <li>Unlimited projects</li>
+                        <li>Excel export</li>
+                        <li>Email support</li>
+                    </ul>
+                    <button onclick="showRegistrationModal()" class="btn btn-secondary">Start Free Trial</button>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <h3>Pro License</h3>
+                    <div class="price">$299<span>/year</span></div>
+                    <p>Full access forever</p>
+                    <ul>
+                        <li>All measurement features</li>
+                        <li>Unlimited projects</li>
+                        <li>Excel export</li>
+                        <li>Priority support</li>
+                        <li>Future updates</li>
+                        <li>Commercial use</li>
+                    </ul>
+                    <button onclick="showPaymentModal()" class="btn">Get License Key</button>
+                </div>
+                
+                <div class="pricing-card">
+                    <h3>Team License</h3>
+                    <div class="price">$199<span>/year</span></div>
+                    <p>Per additional user</p>
+                    <ul>
+                        <li>All Pro features</li>
+                        <li>Volume discounts</li>
+                        <li>Centralized billing</li>
+                        <li>Team support</li>
+                    </ul>
+                    <a href="mailto:support@buildprax.com?subject=Team License Inquiry&body=Hi, I'm interested in a team license for BUILDPRAX MEASURE PRO. Please send me more information." class="btn btn-secondary">Contact Sales</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Support Section -->
+    <section id="support" class="support">
+        <div class="support-content">
+            <h2>Need Help?</h2>
+            <div class="support-cards">
+                <div class="support-card">
+                    <h3>📧 Email Support</h3>
+                    <p>Get help from our technical team</p>
+                    <a href="mailto:support@buildprax.com" class="btn btn-secondary">support@buildprax.com</a>
+                </div>
+                <div class="support-card">
+                    <h3>📖 Documentation</h3>
+                    <p>Step-by-step guides and tutorials</p>
+                    <a href="installation-guide.html" class="btn btn-secondary">Installation Guide</a>
+                </div>
+                <div class="support-card">
+                    <h3>💬 Live Chat</h3>
+                    <p>Coming soon - instant support</p>
+                    <button class="btn" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2025 BUILDPRAX. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Registration Modal -->
+    <div id="registrationModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeRegistrationModal()">&times;</span>
+            <h2>Download BUILDPRAX MEASURE PRO</h2>
+            <p>Complete the form below to start your 14-day free trial. You'll receive the download link immediately.</p>
+            
+            <form id="registrationForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" name="lastName" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="company">Company Name</label>
+                        <input type="text" id="company" name="company">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="addressLine1">Address line 1</label>
+                    <input type="text" id="addressLine1" name="addressLine1" placeholder="Street address, unit, etc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="country">Country *</label>
+                    <select id="country" name="country" required>
+                        <option value="">Select Country</option>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="AU">Australia</option>
+                        <option value="NZ">New Zealand</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="ZA">South Africa</option>
+                        <option value="DE">Germany</option>
+                        <option value="FR">France</option>
+                        <option value="NL">Netherlands</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="source">How did you hear about us?</label>
+                    <select id="source" name="source">
+                        <option value="">Select Source</option>
+                        <option value="google">Google Search</option>
+                        <option value="social">Social Media</option>
+                        <option value="referral">Referral</option>
+                        <option value="trade-show">Trade Show</option>
+                        <option value="magazine">Industry Magazine</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <input type="hidden" name="formType" value="trial_registration">
+                <input type="hidden" name="downloadUrl" value="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg">
+                
+                <button type="submit" class="btn btn-primary">Get Download Link</button>
+            </form>
+            
+            <p class="modal-note">By downloading, you agree to our terms of service. We'll send you updates about new features and improvements.</p>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePaymentModal()">&times;</span>
+            <h2>Upgrade to Pro License</h2>
+            <p>Get unlimited access to all features for $299/year</p>
+            
+            <form id="paymentForm">
+                <div class="payment-methods">
+                    <div class="payment-method" onclick="selectPaymentMethod('card')">
+                        <input type="radio" id="cardPayment" name="paymentMethod" value="card" checked>
+                        <label for="cardPayment">Credit/Debit Card</label>
+                        <div class="card-logos">
+                            <img src="https://img.icons8.com/color/48/visa.png" alt="Visa" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
+                            <img src="https://img.icons8.com/color/48/mastercard.png" alt="Mastercard" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
+                            <img src="https://img.icons8.com/color/48/amex.png" alt="American Express" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
+                        </div>
+                    </div>
+                    <div class="payment-method" onclick="selectPaymentMethod('paypal')">
+                        <input type="radio" id="paypalPayment" name="paymentMethod" value="paypal">
+                        <label for="paypalPayment">PayPal</label>
+                    </div>
+                </div>
+                
+                <div id="cardFields" class="card-fields">
+                    <div class="form-group">
+                        <label for="cardNumber">Card Number</label>
+                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" oninput="formatCardNumber(this)">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expiryDate">Expiry Date</label>
+                            <input type="text" id="expiryDate" placeholder="MM/YY" oninput="formatExpiryDate(this)">
+                        </div>
+                        <div class="form-group">
+                            <label for="cvv">CVV</label>
+                            <input type="text" id="cvv" placeholder="123" maxlength="4">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cardName">Name on Card</label>
+                        <input type="text" id="cardName" placeholder="John Doe">
+                    </div>
+                    <button type="button" onclick="handleCardPayment()" class="btn">Complete Purchase - $299</button>
+                </div>
+                
+                <div id="paypal-button-container"></div>
+            </form>
+            
+            <p class="modal-note">After payment, you'll receive your license key via email within 5 minutes.</p>
+        </div>
+    </div>
+
+    <!-- PayPal SDK -->
+    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD"></script>
+    <script src="script.js"></script>
+</body>
+</html>
