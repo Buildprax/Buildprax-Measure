@@ -202,7 +202,7 @@ function initializePayPalButton() {
             return actions.order.create({
                 purchase_units: [{
                     amount: {
-                        value: '5.00',
+                        value: '149.00',
                         currency_code: 'USD'
                     },
                     description: 'BUILDPRAX MEASURE PRO - Pro License (1 Year)'
@@ -259,7 +259,7 @@ function sendLicenseKey(email, paymentDetails) {
         licenseKey: licenseKey,
         timestamp: new Date().toISOString(),
         paymentId: paymentDetails.id,
-        amount: '5.00'
+        amount: '149.00'
     });
     localStorage.setItem('licenses', JSON.stringify(licenses));
     
@@ -282,7 +282,7 @@ function sendLicenseKey(email, paymentDetails) {
             source: '',
             licenseKey: licenseKey,
             paymentId: paymentDetails.id || 'manual',
-            amount: '5.00'
+            amount: '149.00'
         })
     })
     .then(response => {

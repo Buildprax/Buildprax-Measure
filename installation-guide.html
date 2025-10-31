@@ -1,95 +1,208 @@
-# BUILDPRAX MEASURE PRO - Installation Guide
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Installation Guide - BUILDPRAX MEASURE PRO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #10b981;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #1e3a8a;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            border-bottom: 2px solid #10b981;
+            padding-bottom: 10px;
+        }
+        h3 {
+            color: #334155;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+        p {
+            margin-bottom: 15px;
+        }
+        ol, ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #1e3a8a;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        pre code {
+            background: transparent;
+            color: #e2e8f0;
+            padding: 0;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .btn {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+        .btn:hover {
+            background: #059669;
+        }
+        .step {
+            background: #eff6ff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border-left: 4px solid #3b82f6;
+        }
+        footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BUILDPRAX MEASURE PRO</h1>
+        <p style="font-size: 1.2em; color: #6b7280; margin-bottom: 30px;">Installation Guide for macOS</p>
 
-## Quick Start (macOS)
+        <div class="warning">
+            <strong>⚠️ Important:</strong> If you see "app is damaged" after downloading, this is normal macOS security behavior. Follow the steps below to fix it.
+        </div>
 
-### Option 1: Automatic Installation (Recommended)
+        <h2>Quick Installation (Recommended)</h2>
+        
+        <div class="step">
+            <h3>Step 1: Download and Open</h3>
+            <p>After downloading, locate the <code>BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg</code> file in your Downloads folder.</p>
+        </div>
 
-1. **Download the files:**
-   - `BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg`
-   - `install-app.sh`
-   - `INSTALLATION_INSTRUCTIONS.md`
+        <div class="step">
+            <h3>Step 2: Remove Security Quarantine</h3>
+            <p>Open <strong>Terminal</strong> (Press ⌘ + Space, type "Terminal", press Enter) and run:</p>
+            <pre><code>xattr -d com.apple.quarantine ~/Downloads/"BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"</code></pre>
+            <p>This removes macOS security restrictions from the downloaded file.</p>
+        </div>
 
-2. **Open Terminal:**
-   - Press `Command (⌘) + Spacebar`
-   - Type `Terminal` and press `Enter`
+        <div class="step">
+            <h3>Step 3: Mount and Install</h3>
+            <p>Double-click the DMG file to mount it, then drag <strong>"BUILDPRAX MEASURE PRO"</strong> to your <strong>Applications</strong> folder.</p>
+        </div>
 
-3. **Navigate to your download folder:**
-   ```bash
-   cd ~/Downloads
-   ```
+        <div class="step">
+            <h3>Step 4: Remove App Quarantine</h3>
+            <p>In Terminal, run:</p>
+            <pre><code>xattr -d com.apple.quarantine "/Applications/BUILDPRAX MEASURE PRO.app"</code></pre>
+        </div>
 
-4. **Make the script executable:**
-   ```bash
-   chmod +x install-app.sh
-   ```
+        <div class="step">
+            <h3>Step 5: Launch the App</h3>
+            <p>Find "BUILDPRAX MEASURE PRO" in your Applications folder and double-click to launch.</p>
+            <p><strong>First Launch:</strong> If you see "Developer cannot be verified", right-click the app and select <strong>"Open"</strong>, then click "Open" in the security dialog.</p>
+        </div>
 
-5. **Run the installation:**
-   ```bash
-   ./install-app.sh
-   ```
+        <div class="success">
+            <strong>✅ Success!</strong> The app should now open normally. You'll only need to do this once.
+        </div>
 
-6. **Launch the app:**
-   - Find "BUILDPRAX MEASURE PRO" in your Applications folder
-   - Double-click to launch
+        <h2>Troubleshooting</h2>
 
-### Option 2: Manual Installation
+        <h3>"App is damaged and should be moved to the Trash"</h3>
+        <p>This is a macOS security message. Follow Steps 2 and 4 above to remove quarantine flags.</p>
 
-1. **Remove quarantine attribute:**
-   ```bash
-   xattr -d com.apple.quarantine "BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"
-   ```
+        <h3>"Developer cannot be verified"</h3>
+        <p>Right-click the app in Applications → Select <strong>"Open"</strong> → Click <strong>"Open"</strong> in the dialog. This only needs to be done once.</p>
 
-2. **Open the DMG:**
-   - Double-click the `.dmg` file
+        <h3>Permission Denied Error</h3>
+        <p>If Terminal shows permission errors, try adding <code>sudo</code> before the commands (you'll be asked for your password):</p>
+        <pre><code>sudo xattr -d com.apple.quarantine ~/Downloads/"BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"</code></pre>
 
-3. **Drag to Applications:**
-   - Drag the app icon to your Applications folder
+        <h2>System Requirements</h2>
+        <ul>
+            <li><strong>macOS:</strong> 10.15 (Catalina) or later</li>
+            <li><strong>RAM:</strong> 4GB minimum, 8GB recommended</li>
+            <li><strong>Storage:</strong> 200MB free space</li>
+            <li><strong>Architecture:</strong> Apple Silicon (M1/M2/M3) or Intel</li>
+        </ul>
 
-4. **Remove quarantine from app:**
-   ```bash
-   xattr -d com.apple.quarantine "/Applications/BUILDPRAX MEASURE PRO.app"
-   ```
+        <h2>Getting Started</h2>
+        <ol>
+            <li><strong>Launch the app</strong> from your Applications folder</li>
+            <li><strong>Create a new project</strong> using the "New Project" button</li>
+            <li><strong>Upload a PDF drawing</strong> using "Upload Drawing"</li>
+            <li><strong>Set the scale</strong> by clicking "Set Scale" and measuring a known distance</li>
+            <li><strong>Start measuring</strong> using Length, Area, or Count tools</li>
+            <li><strong>Export to Excel</strong> when finished</li>
+        </ol>
 
-## Troubleshooting
+        <h2>Need Help?</h2>
+        <p>If you encounter any issues during installation:</p>
+        <ul>
+            <li><strong>Email:</strong> <a href="mailto:support@buildprax.com">support@buildprax.com</a></li>
+            <li><strong>Website:</strong> <a href="https://buildprax.com">buildprax.com</a></li>
+        </ul>
 
-### "App is damaged and should be moved to the Trash"
-This is a macOS security message. The installation steps above will fix this.
-
-### "Developer cannot be verified"
-Right-click the app and select "Open" the first time you launch it.
-
-### Permission Denied
-Add `sudo` before commands that require elevated permissions:
-```bash
-sudo ./install-app.sh
-```
-
-## System Requirements
-
-- **macOS:** 10.15 (Catalina) or later
-- **RAM:** 4GB minimum, 8GB recommended
-- **Storage:** 200MB free space
-- **Architecture:** Apple Silicon (M1/M2) or Intel
-
-## Getting Started
-
-1. **Launch the app** from your Applications folder
-2. **Create a new project** using the "New" button
-3. **Upload a PDF drawing** using the file input
-4. **Set the scale** by clicking two points and entering the real distance
-5. **Start measuring** using the Measure tool
-6. **Export to Excel** when finished
-
-## Support
-
-- **Email:** support@buildprax.com
-- **Documentation:** [View full documentation](docs.html)
-- **Installation Help:** This guide
-
-## License
-
-This software is protected by copyright. The 14-day free trial allows full access to all features. After the trial period, a license key is required for continued use.
-
----
-
-*BUILDPRAX MEASURE PRO - Professional measurement software for construction estimating*
+        <footer>
+            <p>&copy; 2025 BUILDPRAX. All rights reserved.</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">BUILDPRAX MEASURE PRO - Professional measurement software for construction estimating</p>
+        </footer>
+    </div>
+</body>
+</html>

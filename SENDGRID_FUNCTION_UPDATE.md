@@ -48,9 +48,25 @@ function buildWelcomeHtml(firstName) {
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
     <h2 style="color: #10b981;">Welcome to BUILDPRAX MEASURE PRO, ${name}!</h2>
     <p>Thank you for downloading our software. We're excited to help you streamline your construction measurement workflow.</p>
-    <h3 style="color: #1e3a8a; margin-top: 30px;">Getting Started:</h3>
+    <h3 style="color: #1e3a8a; margin-top: 30px;">📥 Installation Steps:</h3>
+    <div style="background: #f3f4f6; padding: 15px; border-radius: 6px; margin: 15px 0;">
+      <p style="margin-bottom: 10px;"><strong>Step 1:</strong> Remove macOS security quarantine (if you see "app is damaged"):</p>
+      <p style="font-family: monospace; background: #1e293b; color: #e2e8f0; padding: 10px; border-radius: 4px; margin: 5px 0;">xattr -d com.apple.quarantine ~/Downloads/"BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"</p>
+      <p style="margin-top: 10px; font-size: 0.9em; color: #6b7280;">Open Terminal (⌘ + Space, type "Terminal"), copy and paste the command above, then press Enter.</p>
+    </div>
+    <div style="background: #eff6ff; padding: 15px; border-radius: 6px; margin: 15px 0;">
+      <p style="margin-bottom: 10px;"><strong>Step 2:</strong> Double-click the DMG file to open it, then drag "BUILDPRAX MEASURE PRO" to your Applications folder.</p>
+    </div>
+    <div style="background: #f3f4f6; padding: 15px; border-radius: 6px; margin: 15px 0;">
+      <p style="margin-bottom: 10px;"><strong>Step 3:</strong> Remove quarantine from the installed app:</p>
+      <p style="font-family: monospace; background: #1e293b; color: #e2e8f0; padding: 10px; border-radius: 4px; margin: 5px 0;">xattr -d com.apple.quarantine "/Applications/BUILDPRAX MEASURE PRO.app"</p>
+    </div>
+    <div style="background: #d1fae5; padding: 15px; border-radius: 6px; margin: 15px 0;">
+      <p style="margin-bottom: 10px;"><strong>Step 4:</strong> Launch the app from Applications folder. <strong>First time:</strong> Right-click → "Open" if you see a security warning.</p>
+    </div>
+    <p style="margin-top: 15px;">📖 <strong>Full Installation Guide:</strong> <a href="https://buildprax.com/installation-guide.html" style="color: #10b981;">View detailed guide</a></p>
+    <h3 style="color: #1e3a8a; margin-top: 30px;">🚀 Getting Started:</h3>
     <ol>
-      <li><b>Installation:</b> Locate the downloaded .dmg file, double-click to open it, then drag "BUILDPRAX MEASURE PRO" to your Applications folder.</li>
       <li><b>Create Project:</b> Click "New Project" to create your first project.</li>
       <li><b>Upload Drawing:</b> Use "Upload Drawing" to add a PDF drawing.</li>
       <li><b>Set Scale:</b> Click "Set Scale" and measure a known distance on the drawing.</li>
@@ -61,7 +77,7 @@ function buildWelcomeHtml(firstName) {
     <ul>
       <li>Full access to all features for 14 days</li>
       <li>No credit card required</li>
-      <li>After 14 days, upgrade to Pro for $5/year (Launch Special - normally $299/year)</li>
+      <li>After 14 days, upgrade to Pro for $149/year (Launch Special - increases to $249/year after February 2026)</li>
     </ul>
     <h3 style="color: #1e3a8a; margin-top: 30px;">Need Help?</h3>
     <p>Email us at <a href="mailto:support@buildprax.com">support@buildprax.com</a> - We're here to help you succeed!</p>
@@ -130,7 +146,7 @@ async function sendEmails({
   
   if (action === 'license_purchase') {
     customerSubject = 'Your BUILDPRAX MEASURE PRO License Key';
-    customerHtml = buildLicenseKeyHtml(licenseKey || '', amount || '5.00');
+    customerHtml = buildLicenseKeyHtml(licenseKey || '', amount || '149.00');
   } else {
     customerSubject = 'Welcome to BUILDPRAX MEASURE PRO!';
     customerHtml = buildWelcomeHtml(firstName);
