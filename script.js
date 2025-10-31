@@ -182,36 +182,22 @@ function startDownload() {
     localStorage.setItem('downloads', JSON.stringify(downloads));
 }
 
-// Payment Method Selection
-function selectPaymentMethod(method) {
-    // Remove selected class from all methods
-    document.querySelectorAll('.payment-method').forEach(el => {
-        el.classList.remove('selected');
-    });
-    
-    // Add selected class to clicked method
-    event.currentTarget.classList.add('selected');
-    
-    // Show/hide card fields based on selection
-    const cardFields = document.getElementById('cardFields');
-    const paypalContainer = document.getElementById('paypal-button-container');
-    
-    if (method === 'card') {
-        cardFields.style.display = 'block';
-        paypalContainer.style.display = 'none';
-    } else {
-        cardFields.style.display = 'none';
-        paypalContainer.style.display = 'block';
-    }
-}
+// Payment method selection no longer needed - PayPal handles both PayPal and Card payments
 
-// PayPal Button Initialization
+// PayPal Button Initialization - Smart Payment Button (supports both PayPal and Card)
 function initializePayPalButton() {
     // Clear any existing buttons
     const container = document.getElementById('paypal-button-container');
     container.innerHTML = '';
     
+    // Smart Payment Button - shows both PayPal and Card options
     paypal.Buttons({
+        style: {
+            layout: 'vertical',
+            color: 'gold',
+            shape: 'rect',
+            label: 'paypal'
+        },
         createOrder: function(data, actions) {
             return actions.order.create({
                 purchase_units: [{
@@ -225,12 +211,18 @@ function initializePayPalButton() {
         },
         onApprove: function(data, actions) {
             return actions.order.capture().then(function(details) {
-                // Payment successful
+                // Payment successful (works for both PayPal and Card)
                 console.log('Payment completed:', details);
                 
                 // Get customer data
                 const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
-                const userEmail = customerData.email || details.payer.email_addresses[0].email_address;
+                const userEmail = customerData.email || (details.payer && details.payer.email_addresses && details.payer.email_addresses[0] ? details.payer.email_addresses[0].email_address : '');
+                
+                if (!userEmail) {
+                    console.error('No email found');
+                    showMessage('Payment successful but could not retrieve email. Please contact support@buildprax.com with your payment ID: ' + details.id, 'error');
+                    return;
+                }
                 
                 // Generate and send license key
                 sendLicenseKey(userEmail, details);
@@ -243,43 +235,17 @@ function initializePayPalButton() {
             });
         },
         onError: function(err) {
-            console.error('PayPal error:', err);
-            showMessage('Payment failed. Please try again.', 'error');
+            console.error('Payment error:', err);
+            showMessage('Payment failed. Please try again or contact support@buildprax.com', 'error');
+        },
+        onCancel: function(data) {
+            console.log('Payment cancelled:', data);
+            showMessage('Payment was cancelled.', 'error');
         }
     }).render('#paypal-button-container');
 }
 
-// Handle Card Payment (Simulated)
-function handleCardPayment() {
-    const cardNumber = document.getElementById('cardNumber').value;
-    const expiryDate = document.getElementById('expiryDate').value;
-    const cvv = document.getElementById('cvv').value;
-    const cardName = document.getElementById('cardName').value;
-    
-    // Basic validation
-    if (!cardNumber || !expiryDate || !cvv || !cardName) {
-        showMessage('Please fill in all card details.', 'error');
-        return;
-    }
-    
-    // Simulate payment processing
-    showMessage('Processing payment...', 'success');
-    
-    setTimeout(() => {
-        // Simulate successful payment
-        const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
-        const userEmail = customerData.email || 'customer@example.com';
-        
-        // Generate and send license key
-        sendLicenseKey(userEmail, { id: 'card_' + Date.now() });
-        
-        // Close modal
-        closePaymentModal();
-        
-        // Show success message
-        showMessage('Payment successful! Your license key has been sent to your email. Thank you for supporting BUILDPRAX!', 'success');
-    }, 2000);
-}
+// Card payment is now handled by PayPal SDK - no separate function needed
 
 // Send License Key Function
 function sendLicenseKey(email, paymentDetails) {
@@ -366,24 +332,7 @@ function showMessage(text, type) {
     }, 5000);
 }
 
-// Format Card Number
-function formatCardNumber(input) {
-    let value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
-    let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
-    if (formattedValue.length > 19) {
-        formattedValue = formattedValue.substr(0, 19);
-    }
-    input.value = formattedValue;
-}
-
-// Format Expiry Date
-function formatExpiryDate(input) {
-    let value = input.value.replace(/\D/g, '');
-    if (value.length >= 2) {
-        value = value.substring(0, 2) + '/' + value.substring(2, 4);
-    }
-    input.value = value;
-}
+// Card formatting functions no longer needed - PayPal handles card input
 
 // Utility function to view stored data (for debugging)
 function viewStoredData() {

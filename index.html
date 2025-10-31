@@ -270,54 +270,20 @@
             <h2>Upgrade to Pro License</h2>
             <p>Get unlimited access to all features for $5/year <span style="color: #10b981; font-weight: 600;">(Launch Special - normally $299/year)</span></p>
             
-            <form id="paymentForm">
-                <div class="payment-methods">
-                    <div class="payment-method" onclick="selectPaymentMethod('card')">
-                        <input type="radio" id="cardPayment" name="paymentMethod" value="card" checked>
-                        <label for="cardPayment">Credit/Debit Card</label>
-                        <div class="card-logos">
-                            <img src="https://img.icons8.com/color/48/visa.png" alt="Visa" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
-                            <img src="https://img.icons8.com/color/48/mastercard.png" alt="Mastercard" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
-                            <img src="https://img.icons8.com/color/48/amex.png" alt="American Express" class="card-logo" style="height:24px;width:auto;object-fit:contain;">
-                        </div>
-                    </div>
-                    <div class="payment-method" onclick="selectPaymentMethod('paypal')">
-                        <input type="radio" id="paypalPayment" name="paymentMethod" value="paypal">
-                        <label for="paypalPayment">PayPal</label>
-                    </div>
-                </div>
-                
-                <div id="cardFields" class="card-fields">
-                    <div class="form-group">
-                        <label for="cardNumber">Card Number</label>
-                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" oninput="formatCardNumber(this)">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="expiryDate">Expiry Date</label>
-                            <input type="text" id="expiryDate" placeholder="MM/YY" oninput="formatExpiryDate(this)">
-                        </div>
-                        <div class="form-group">
-                            <label for="cvv">CVV</label>
-                            <input type="text" id="cvv" placeholder="123" maxlength="4">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="cardName">Name on Card</label>
-                        <input type="text" id="cardName" placeholder="John Doe">
-                    </div>
-                    <button type="button" onclick="handleCardPayment()" class="btn">Complete Purchase - $5</button>
-                </div>
-                
-                <div id="paypal-button-container"></div>
-            </form>
+            <div id="paymentForm">
+                <p style="margin-bottom: 20px; color: #6b7280;">Choose your preferred payment method:</p>
+                <div id="paypal-button-container" style="margin-bottom: 20px;"></div>
+                <p style="font-size: 0.9rem; color: #6b7280; text-align: center; margin-top: 20px;">
+                    Secure payment processed by PayPal. Supports Visa, Mastercard, American Express, and PayPal accounts.
+                </p>
+            </div>
             
             <p class="modal-note">After payment, you'll receive your license key via email within 5 minutes.</p>
         </div>
     </div>
 
-    <!-- PayPal SDK -->
-    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD"></script>
+    <!-- PayPal SDK - Enable both PayPal and Card payments -->
+    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD&enable-funding=card&components=buttons,marks"></script>
     <script src="script.js?v=3"></script>
 </body>
 </html>
