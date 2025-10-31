@@ -102,7 +102,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const company = document.getElementById('company').value;
             const phone = document.getElementById('phone').value;
             const addressLine1 = document.getElementById('addressLine1') ? document.getElementById('addressLine1').value : '';
+            const city = document.getElementById('city') ? document.getElementById('city').value : '';
             const country = document.getElementById('country') ? document.getElementById('country').value : '';
+            const source = document.getElementById('source') ? document.getElementById('source').value : '';
             
             // Basic validation
             if (!firstName || !lastName || !email) {
@@ -130,14 +132,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    action: 'trial_registration',
                     firstName: firstName,
                     lastName: lastName,
-                email: email,
-                company: company,
-                phone: phone,
-                addressLine1: addressLine1,
-                country: country,
-                action: 'trial_registration'
+                    email: email,
+                    company: company,
+                    phone: phone,
+                    addressLine1: addressLine1,
+                    city: city,
+                    country: country,
+                    source: source
                 })
             })
             .then(response => {
@@ -212,7 +216,7 @@ function initializePayPalButton() {
             return actions.order.create({
                 purchase_units: [{
                     amount: {
-                        value: '299.00',
+                        value: '5.00',
                         currency_code: 'USD'
                     },
                     description: 'BUILDPRAX MEASURE PRO - Pro License (1 Year)'
@@ -235,7 +239,7 @@ function initializePayPalButton() {
                 closePaymentModal();
                 
                 // Show success message
-                showMessage('Payment successful! Your license key has been sent to your email.', 'success');
+                showMessage('Payment successful! Your license key has been sent to your email. Thank you for supporting BUILDPRAX!', 'success');
             });
         },
         onError: function(err) {
@@ -273,7 +277,7 @@ function handleCardPayment() {
         closePaymentModal();
         
         // Show success message
-        showMessage('Payment successful! Your license key has been sent to your email.', 'success');
+        showMessage('Payment successful! Your license key has been sent to your email. Thank you for supporting BUILDPRAX!', 'success');
     }, 2000);
 }
 
@@ -289,22 +293,30 @@ function sendLicenseKey(email, paymentDetails) {
         licenseKey: licenseKey,
         timestamp: new Date().toISOString(),
         paymentId: paymentDetails.id,
-        amount: '299.00'
+        amount: '5.00'
     });
     localStorage.setItem('licenses', JSON.stringify(licenses));
     
-    // Send notification to support
-    fetch('/api/send-email', {
+    // Send license key email to customer and notification to support
+    fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+            action: 'license_purchase',
+            firstName: '',
+            lastName: '',
             email: email,
+            company: '',
+            phone: '',
+            addressLine1: '',
+            city: '',
+            country: '',
+            source: '',
             licenseKey: licenseKey,
-            paymentId: paymentDetails.id,
-            message: `New license key generated for ${email}`,
-            _subject: 'BUILDPRAX MEASURE PRO - New License Key Generated'
+            paymentId: paymentDetails.id || 'manual',
+            amount: '5.00'
         })
     })
     .then(response => {

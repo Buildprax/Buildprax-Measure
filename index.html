@@ -6,7 +6,7 @@
     <title>BUILDPRAX MEASURE PRO - Smart Quantity Take-Offs for Construction Estimating</title>
     <meta name="description" content="Professional measurement software for construction estimating. Upload PDF drawings, set scale, perform measurements, and export to Excel.">
     <link rel="stylesheet" href="styles.css?v=3">
-    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="icon" type="image/png" href="assets/logo.png">
 </head>
 <body>
     <!-- Header -->
@@ -39,6 +39,7 @@
                 <button onclick="showRegistrationModal()" class="btn btn-large">Download Free Trial</button>
                 <a href="#features" class="btn btn-secondary btn-large">Learn More</a>
             </div>
+            <img src="assets/app-screenshot.png" alt="BUILDPRAX MEASURE PRO Screenshot" class="app-screenshot" style="max-width: 90%; margin: 2rem auto 0; display: block; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
         </div>
     </section>
 
@@ -128,8 +129,9 @@
                 
                 <div class="pricing-card featured">
                     <h3>Pro License</h3>
-                    <div class="price">$299<span>/year</span></div>
-                    <p>Full access forever</p>
+                    <div class="price">$5<span>/year</span></div>
+                    <p style="font-size: 0.9rem; color: #10b981; font-weight: 600;">🎉 Launch Special Price</p>
+                    <p>Full access forever (Price will increase to $299/year after launch period)</p>
                     <ul>
                         <li>All measurement features</li>
                         <li>Unlimited projects</li>
@@ -229,20 +231,13 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="city">City *</label>
+                    <input type="text" id="city" name="city" placeholder="City" required>
+                </div>
+
+                <div class="form-group">
                     <label for="country">Country *</label>
-                    <select id="country" name="country" required>
-                        <option value="">Select Country</option>
-                        <option value="US">United States</option>
-                        <option value="CA">Canada</option>
-                        <option value="AU">Australia</option>
-                        <option value="NZ">New Zealand</option>
-                        <option value="UK">United Kingdom</option>
-                        <option value="ZA">South Africa</option>
-                        <option value="DE">Germany</option>
-                        <option value="FR">France</option>
-                        <option value="NL">Netherlands</option>
-                        <option value="other">Other</option>
-                    </select>
+                    <input type="text" id="country" name="country" placeholder="Country" required>
                 </div>
                 
                 <div class="form-group">
@@ -273,7 +268,7 @@
         <div class="modal-content">
             <span class="close" onclick="closePaymentModal()">&times;</span>
             <h2>Upgrade to Pro License</h2>
-            <p>Get unlimited access to all features for $299/year</p>
+            <p>Get unlimited access to all features for $5/year <span style="color: #10b981; font-weight: 600;">(Launch Special - normally $299/year)</span></p>
             
             <form id="paymentForm">
                 <div class="payment-methods">
@@ -311,7 +306,7 @@
                         <label for="cardName">Name on Card</label>
                         <input type="text" id="cardName" placeholder="John Doe">
                     </div>
-                    <button type="button" onclick="handleCardPayment()" class="btn">Complete Purchase - $299</button>
+                    <button type="button" onclick="handleCardPayment()" class="btn">Complete Purchase - $5</button>
                 </div>
                 
                 <div id="paypal-button-container"></div>
