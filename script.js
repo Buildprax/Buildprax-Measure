@@ -167,23 +167,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Scroll to Download Section
 function scrollToDownload() {
-    const downloadSection = document.getElementById('download');
-    if (downloadSection) {
-        downloadSection.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-        });
+    try {
+        const downloadSection = document.getElementById('download');
+        if (downloadSection) {
+            downloadSection.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        } else {
+            console.error('Download section not found');
+            // Fallback: scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    } catch (error) {
+        console.error('Error in scrollToDownload:', error);
     }
 }
 
 // Download for Specific Platform (shows registration first)
 function downloadForPlatform(platform) {
-    // Show registration modal first
-    showRegistrationModal();
-    
-    // Store selected platform for download after registration
-    localStorage.setItem('selectedPlatform', platform);
+    try {
+        // Show registration modal first
+        if (typeof showRegistrationModal === 'function') {
+            showRegistrationModal();
+        } else {
+            console.error('showRegistrationModal function not found');
+            // Fallback: try to find and show modal directly
+            const modal = document.getElementById('registrationModal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+        
+        // Store selected platform for download after registration
+        if (typeof Storage !== 'undefined') {
+            localStorage.setItem('selectedPlatform', platform);
+        }
+    } catch (error) {
+        console.error('Error in downloadForPlatform:', error);
+    }
 }
+
+// Make sure functions are available globally
+window.scrollToDownload = scrollToDownload;
+window.downloadForPlatform = downloadForPlatform;
 
 // Start Download Function (called after registration)
 function startDownload() {
