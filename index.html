@@ -36,7 +36,7 @@
             <h1>Professional Measurement Software for Construction</h1>
             <p>Transform your PDF drawings into accurate quantity take-offs with our intuitive measurement tool. Set scale, measure areas, lengths, and counts, then export everything to Excel.</p>
             <div class="hero-buttons">
-                <button onclick="showRegistrationModal()" class="btn btn-large">Download Free Trial</button>
+                <button onclick="scrollToDownload()" class="btn btn-large">Download Free Trial</button>
                 <a href="#features" class="btn btn-secondary btn-large">Learn More</a>
             </div>
             <img src="assets/app-screenshot.png" alt="BUILDPRAX MEASURE PRO Screenshot" class="app-screenshot" style="max-width: 90%; margin: 2rem auto 0; display: block; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
@@ -86,19 +86,19 @@
                 <div class="download-card">
                     <h3>🍎 macOS</h3>
                     <p>Compatible with macOS 10.15+</p>
-                    <button onclick="showRegistrationModal()" class="btn">
-                        Download Now
+                    <button onclick="downloadForPlatform('mac')" class="btn">
+                        Download for macOS
                     </button>
-                    <small>125 MB • Includes installation guide</small>
+                    <small>140 MB • Apple Silicon (M1/M2/M3)</small>
                 </div>
                 
                 <div class="download-card">
                     <h3>🪟 Windows</h3>
-                    <p>Coming Soon</p>
-                    <button class="btn" disabled>
+                    <p>Compatible with Windows 10/11</p>
+                    <button onclick="downloadForPlatform('windows')" class="btn">
                         Download for Windows
                     </button>
-                    <small>Available Q2 2025</small>
+                    <small>116 MB • Windows 10/11</small>
                 </div>
             </div>
 

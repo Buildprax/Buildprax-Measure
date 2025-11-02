@@ -165,21 +165,72 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Start Download Function
+// Scroll to Download Section
+function scrollToDownload() {
+    const downloadSection = document.getElementById('download');
+    if (downloadSection) {
+        downloadSection.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }
+}
+
+// Download for Specific Platform (shows registration first)
+function downloadForPlatform(platform) {
+    // Show registration modal first
+    showRegistrationModal();
+    
+    // Store selected platform for download after registration
+    localStorage.setItem('selectedPlatform', platform);
+}
+
+// Start Download Function (called after registration)
 function startDownload() {
-    const downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
+    // Get selected platform from localStorage (set by downloadForPlatform)
+    const selectedPlatform = localStorage.getItem('selectedPlatform');
+    
+    // If no platform selected, detect automatically
+    let platform = selectedPlatform;
+    if (!platform) {
+        const userPlatform = navigator.platform || navigator.userAgentData?.platform || '';
+        const isMac = userPlatform.toUpperCase().includes('MAC') || userPlatform.toUpperCase().includes('IPAD') || userPlatform.toUpperCase().includes('IPHONE');
+        const isWindows = userPlatform.toUpperCase().includes('WIN');
+        platform = isMac ? 'mac' : isWindows ? 'windows' : 'mac'; // Default to Mac
+    }
+    
+    // Determine download URL and filename based on platform
+    let downloadLink, filename;
+    
+    if (platform === 'mac') {
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
+        filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
+    } else if (platform === 'windows') {
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.exe';
+        filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.exe';
+    } else {
+        // Default to Mac
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
+        filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
+    }
+    
+    // Create download link
     const link = document.createElement('a');
     link.href = downloadLink;
-    link.download = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
+    link.download = filename;
     link.click();
     
     // Track download
     const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
     downloads.push({
         timestamp: new Date().toISOString(),
-        type: 'trial_download'
+        type: 'trial_download',
+        platform: platform
     });
     localStorage.setItem('downloads', JSON.stringify(downloads));
+    
+    // Clear selected platform
+    localStorage.removeItem('selectedPlatform');
 }
 
 // Payment method selection no longer needed - PayPal handles both PayPal and Card payments
