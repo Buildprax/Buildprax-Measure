@@ -233,8 +233,8 @@ function startDownload() {
         downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
         filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
     } else if (platform === 'windows') {
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.exe';
-        filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.exe';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-x64.exe';
+        filename = 'BUILDPRAX MEASURE PRO-1.0.0-x64.exe';
     } else {
         // Default to Mac
         downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
