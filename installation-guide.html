@@ -121,58 +121,55 @@
 <body>
     <div class="container">
         <h1>BUILDPRAX MEASURE PRO</h1>
-        <p style="font-size: 1.2em; color: #6b7280; margin-bottom: 30px;">Installation Guide for macOS</p>
+        <p style="font-size: 1.2em; color: #6b7280; margin-bottom: 30px;">Installation Guide (Windows &amp; macOS)</p>
 
-        <div class="warning">
-            <strong>⚠️ Important:</strong> If you see "app is damaged" after downloading, this is normal macOS security behavior. Follow the steps below to fix it.
+        <div class="success">
+            <strong>✅ Approved software:</strong> Windows installs from the Microsoft Store. macOS downloads are Apple-signed and notarized (approved by Apple).
         </div>
 
-        <h2>Quick Installation (Recommended)</h2>
+        <h2>Windows (Microsoft Store)</h2>
+        <div class="step">
+            <h3>Step 1: Install from the Microsoft Store</h3>
+            <p>On Windows 10/11, install BUILDPRAX MEASURE PRO from the Microsoft Store, then launch it from the Start Menu.</p>
+        </div>
+
+        <h2>macOS (Recommended)</h2>
         
         <div class="step">
             <h3>Step 1: Download and Open</h3>
-            <p>After downloading, locate the <code>BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg</code> file in your Downloads folder.</p>
+            <p>After downloading, locate the <code>BUILDPRAX MEASURE PRO</code> <code>.dmg</code> file in your Downloads folder (the filename may include a version number).</p>
         </div>
 
         <div class="step">
-            <h3>Step 2: Remove Security Quarantine</h3>
-            <p>Open <strong>Terminal</strong> (Press ⌘ + Space, type "Terminal", press Enter) and run:</p>
-            <pre><code>xattr -d com.apple.quarantine ~/Downloads/"BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"</code></pre>
-            <p>This removes macOS security restrictions from the downloaded file.</p>
-        </div>
-
-        <div class="step">
-            <h3>Step 3: Mount and Install</h3>
+            <h3>Step 2: Mount and Install</h3>
             <p>Double-click the DMG file to mount it, then drag <strong>"BUILDPRAX MEASURE PRO"</strong> to your <strong>Applications</strong> folder.</p>
         </div>
 
         <div class="step">
-            <h3>Step 4: Remove App Quarantine</h3>
-            <p>In Terminal, run:</p>
-            <pre><code>xattr -d com.apple.quarantine "/Applications/BUILDPRAX MEASURE PRO.app"</code></pre>
-        </div>
-
-        <div class="step">
-            <h3>Step 5: Launch the App</h3>
+            <h3>Step 3: Launch the App</h3>
             <p>Find "BUILDPRAX MEASURE PRO" in your Applications folder and double-click to launch.</p>
-            <p><strong>First Launch:</strong> If you see "Developer cannot be verified", right-click the app and select <strong>"Open"</strong>, then click "Open" in the security dialog.</p>
+            <p><strong>First Launch:</strong> If macOS shows a security prompt, right-click the app and select <strong>"Open"</strong>, then click "Open" in the dialog.</p>
         </div>
 
         <div class="success">
-            <strong>✅ Success!</strong> The app should now open normally. You'll only need to do this once.
+            <strong>✅ Success!</strong> The app should now open normally.
         </div>
 
         <h2>Troubleshooting</h2>
 
-        <h3>"App is damaged and should be moved to the Trash"</h3>
-        <p>This is a macOS security message. Follow Steps 2 and 4 above to remove quarantine flags.</p>
-
         <h3>"Developer cannot be verified"</h3>
         <p>Right-click the app in Applications → Select <strong>"Open"</strong> → Click <strong>"Open"</strong> in the dialog. This only needs to be done once.</p>
 
-        <h3>Permission Denied Error</h3>
-        <p>If Terminal shows permission errors, try adding <code>sudo</code> before the commands (you'll be asked for your password):</p>
-        <pre><code>sudo xattr -d com.apple.quarantine ~/Downloads/"BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg"</code></pre>
+        <h3>"Apple cannot check the app for malicious software" / App won’t open</h3>
+        <p>This is a standard macOS security prompt. You can allow the app once:</p>
+        <ol>
+            <li>Go to <strong>System Settings</strong> → <strong>Privacy &amp; Security</strong></li>
+            <li>Scroll down to the security message about BUILDPRAX MEASURE PRO</li>
+            <li>Click <strong>Open Anyway</strong></li>
+        </ol>
+
+        <h3>"App is damaged" / "Move to Trash"</h3>
+        <p>This usually indicates an old file or an incomplete download. Please delete the app, download the latest installer again from <a href="https://buildprax.com">buildprax.com</a>, and try again. If it still happens, email <a href="mailto:support@buildprax.com">support@buildprax.com</a>.</p>
 
         <h2>System Requirements</h2>
         <ul>
