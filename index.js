@@ -74,6 +74,8 @@ export async function main(args) {
     
     console.log('Platform detection:', { platformLower, isMac, isWindows });
     
+    // CRITICAL: NEVER use template - it contains quarantine language
+    // Always use our safe, approved email content
     const toUser = {
       to: email,
       from: fromEmail,
@@ -81,17 +83,13 @@ export async function main(args) {
       text: getWelcomeText(firstName, isMac, isWindows),
       html: getWelcomeHtml(firstName, isMac, isWindows),
     };
-
-    // CRITICAL: Do NOT use template if it contains quarantine language
-    // Comment out template usage to use our safe email content instead
-    // if (welcomeTemplateId) {
-    //   toUser.templateId = welcomeTemplateId;
-    //   toUser.dynamic_template_data = { to_name: firstName || 'there' };
-    //   // If templateId used, SendGrid uses template content, html/text may be ignored
-    // }
+    
+    // DO NOT set templateId - we want to use our safe content, not the template
+    // If welcomeTemplateId exists, log a warning but DO NOT use it
     if (welcomeTemplateId) {
-      console.warn('⚠️ WELCOME_TEMPLATE_ID is set but will be IGNORED to use safe email content');
-      console.warn('⚠️ To use template, you must update it in SendGrid to remove quarantine language');
+      console.warn('⚠️ WELCOME_TEMPLATE_ID environment variable is set but will be IGNORED');
+      console.warn('⚠️ Using safe email content instead to avoid quarantine language');
+      console.warn('⚠️ To fix: Remove WELCOME_TEMPLATE_ID from DigitalOcean environment variables');
     }
 
     // Send notification to support with ALL form fields
@@ -148,13 +146,25 @@ ${amount ? `Amount: ${amount}` : ''}`;
       html: supportHtml
     };
 
+    console.log('=== EMAIL CONTENT DEBUG ===');
+    console.log('Welcome email subject:', toUser.subject);
+    console.log('Welcome email text preview:', toUser.text.substring(0, 200));
+    console.log('Welcome email has templateId?', !!toUser.templateId);
+    console.log('Support email platform:', platformDisplay);
+    console.log('Support email HTML contains platform?', supportHtml.includes(platformDisplay));
+    console.log('===========================');
+    
     console.log('Sending emails via SendGrid...');
+    console.log('toUser object:', JSON.stringify(toUser, null, 2));
+    console.log('toSupport platform field:', platformDisplay);
+    
     await Promise.all([
       sgMail.send(toUser),
       sgMail.send(toSupport)
     ]);
     
     console.log('✅ Emails sent successfully');
+    console.log('Platform that was sent:', platformDisplay);
 
     return {
       statusCode: 200,
