@@ -211,35 +211,67 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Submit to SendGrid function in the background (don't block download)
             // This runs asynchronously and doesn't affect the download
+            const emailData = {
+                action: 'trial_registration',
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                platform: platform,
+                company: company,
+                phone: phone,
+                addressLine1: addressLine1,
+                city: city,
+                country: country,
+                source: source
+            };
+            
+            console.log('Sending email with data:', emailData);
+            
             fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    action: 'trial_registration',
-                    firstName: firstName,
-                    lastName: lastName,
-                    email: email,
-                    platform: platform,
-                    company: company,
-                    phone: phone,
-                    addressLine1: addressLine1,
-                    city: city,
-                    country: country,
-                    source: source
-                })
+                body: JSON.stringify(emailData)
             })
-            .then(response => {
-                if (response.ok) {
-                    console.log('Registration email sent successfully');
+            .then(async response => {
+                console.log('Email API response status:', response.status);
+                
+                // Try to parse response body
+                let responseData;
+                try {
+                    const text = await response.text();
+                    console.log('Email API response text:', text);
+                    responseData = text ? JSON.parse(text) : {};
+                } catch (parseError) {
+                    console.warn('Could not parse response as JSON:', parseError);
+                    responseData = {};
+                }
+                
+                if (response.ok && responseData.ok !== false) {
+                    console.log('✅ Registration email sent successfully');
                 } else {
-                    console.warn('Registration email submission returned non-ok status:', response.status);
+                    const errorMsg = responseData.error || responseData.message || `HTTP ${response.status}`;
+                    console.error('❌ Registration email submission failed:', errorMsg);
+                    console.error('Full response:', responseData);
+                    
+                    // Show a subtle message to user (don't block them since download already happened)
+                    setTimeout(() => {
+                        showMessage('Note: Email notification may not have been sent. If you don\'t receive a welcome email, please contact support@buildprax.com', 'error');
+                    }, 2000);
                 }
             })
             .catch(error => {
-                console.error('Error sending registration email (download still proceeds):', error);
-                // Download already happened, so we just log the error
+                console.error('❌ Network error sending registration email:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                
+                // Show a subtle message to user (don't block them since download already happened)
+                setTimeout(() => {
+                    showMessage('Note: Could not send email notification. If you don\'t receive a welcome email, please contact support@buildprax.com', 'error');
+                }, 2000);
             });
         });
     }
