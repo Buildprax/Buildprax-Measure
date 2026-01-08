@@ -77,10 +77,27 @@ function showRegistrationModal() {
             }
         }
         
-        // Reset form
+        // Update platform field in form
+        const platformField = document.getElementById('platform');
+        if (platformField) {
+            if (isWindows) {
+                platformField.value = 'Windows';
+            } else if (selectedPlatform === 'mac') {
+                platformField.value = 'macOS';
+            } else {
+                platformField.value = selectedPlatform ? selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1) : '';
+            }
+        }
+        
+        // Reset form (but preserve platform field)
         const form = document.getElementById('registrationForm');
         if (form) {
+            const platformValue = platformField ? platformField.value : '';
             form.reset();
+            // Restore platform value after reset
+            if (platformField && platformValue) {
+                platformField.value = platformValue;
+            }
         }
         
         // Show modal
@@ -126,12 +143,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const firstName = document.getElementById('firstName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
+            const platform = document.getElementById('platform') ? document.getElementById('platform').value.trim() : '';
             const company = document.getElementById('company').value.trim();
             const phone = document.getElementById('phone').value.trim();
             const addressLine1 = document.getElementById('addressLine1') ? document.getElementById('addressLine1').value.trim() : '';
             const city = document.getElementById('city') ? document.getElementById('city').value.trim() : '';
             const country = document.getElementById('country') ? document.getElementById('country').value.trim() : '';
             const source = document.getElementById('source') ? document.getElementById('source').value : '';
+            
+            // Validate platform field
+            if (!platform) {
+                showMessage('Platform is required. Please click the download button again.', 'error');
+                return;
+            }
             
             // Basic validation - ensure required fields are filled
             if (!firstName || !lastName || !email || !city || !country) {
@@ -160,6 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 firstName: firstName,
                 lastName: lastName,
                 email: email,
+                platform: platform,
                 company: company,
                 phone: phone,
                 timestamp: new Date().toISOString(),
@@ -196,6 +221,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     firstName: firstName,
                     lastName: lastName,
                     email: email,
+                    platform: platform,
                     company: company,
                     phone: phone,
                     addressLine1: addressLine1,
