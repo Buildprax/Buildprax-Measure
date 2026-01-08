@@ -231,8 +231,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify(emailData)
+                body: JSON.stringify(emailData),
+                mode: 'cors' // Explicitly set CORS mode
             })
             .then(async response => {
                 console.log('Email API response status:', response.status);
@@ -644,3 +646,53 @@ function viewStoredData() {
     console.log('Downloads:', JSON.parse(localStorage.getItem('downloads') || '[]'));
     console.log('Licenses:', JSON.parse(localStorage.getItem('licenses') || '[]'));
 }
+
+// Test email function (run in browser console: testEmailFunction())
+function testEmailFunction() {
+    console.log('🧪 Testing email function...');
+    const testData = {
+        action: 'trial_registration',
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        platform: 'macOS',
+        company: 'Test Company',
+        phone: '+1234567890',
+        addressLine1: '123 Test St',
+        city: 'Test City',
+        country: 'Test Country',
+        source: 'test'
+    };
+    
+    fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(testData),
+        mode: 'cors'
+    })
+    .then(async response => {
+        console.log('Response status:', response.status);
+        const text = await response.text();
+        console.log('Response text:', text);
+        try {
+            const data = JSON.parse(text);
+            console.log('Response data:', data);
+            if (response.ok && data.ok) {
+                console.log('✅ Email test successful!');
+            } else {
+                console.error('❌ Email test failed:', data.error || data);
+            }
+        } catch (e) {
+            console.error('❌ Could not parse response:', e);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Network error:', error);
+    });
+}
+
+// Make test function available globally
+window.testEmailFunction = testEmailFunction;
