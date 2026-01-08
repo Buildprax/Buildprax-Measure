@@ -63,12 +63,16 @@ export async function main(args) {
     }
     
     console.log('Sending emails to:', { user: email, support: supportEmail });
+    console.log('Platform received:', platform);
+    console.log('Platform type:', typeof platform);
 
     // Send welcome email to user
     // Determine platform-specific installation instructions
     const platformLower = (platform || '').toLowerCase();
     const isMac = platformLower.includes('mac') || platformLower === 'macos';
     const isWindows = platformLower.includes('windows') || platformLower === 'windows';
+    
+    console.log('Platform detection:', { platformLower, isMac, isWindows });
     
     const toUser = {
       to: email,
@@ -78,18 +82,31 @@ export async function main(args) {
       html: getWelcomeHtml(firstName, isMac, isWindows),
     };
 
+    // CRITICAL: Do NOT use template if it contains quarantine language
+    // Comment out template usage to use our safe email content instead
+    // if (welcomeTemplateId) {
+    //   toUser.templateId = welcomeTemplateId;
+    //   toUser.dynamic_template_data = { to_name: firstName || 'there' };
+    //   // If templateId used, SendGrid uses template content, html/text may be ignored
+    // }
     if (welcomeTemplateId) {
-      toUser.templateId = welcomeTemplateId;
-      toUser.dynamic_template_data = { to_name: firstName || 'there' };
-      // If templateId used, SendGrid uses template content, html/text may be ignored
+      console.warn('⚠️ WELCOME_TEMPLATE_ID is set but will be IGNORED to use safe email content');
+      console.warn('⚠️ To use template, you must update it in SendGrid to remove quarantine language');
     }
 
     // Send notification to support with ALL form fields
     const supportSubject = action === 'license_purchase' ? 'New License Purchase' : 'New Trial Registration';
+    
+    // Ensure platform is clearly shown
+    const platformDisplay = platform || 'NOT SPECIFIED - CHECK FORM';
+    console.log('Platform for support email:', platformDisplay);
+    
     const supportText = `Action: ${action}
 Name: ${firstName} ${lastName}
 Email: ${email}
-Platform: ${platform || 'Not specified'} ⚠️ PLATFORM INFO
+═══════════════════════════════════════
+PLATFORM: ${platformDisplay} ⚠️ IMPORTANT
+═══════════════════════════════════════
 Company: ${company || 'Not provided'}
 Phone: ${phone || 'Not provided'}
 Address: ${addressLine1 || 'Not provided'}
@@ -107,7 +124,10 @@ ${amount ? `Amount: ${amount}` : ''}`;
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Action:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${action}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Name:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${firstName} ${lastName}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Email:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${email}</td></tr>
-          <tr style="background-color: #fef3c7;"><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Platform:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><strong style="color: #065F46; font-size: 16px;">${platform || 'Not specified'}</strong></td></tr>
+          <tr style="background-color: #fef3c7; border: 2px solid #f59e0b;">
+            <td style="padding: 12px; border-bottom: 2px solid #f59e0b;"><b style="color: #92400e; font-size: 16px;">⚠️ PLATFORM:</b></td>
+            <td style="padding: 12px; border-bottom: 2px solid #f59e0b;"><strong style="color: #065F46; font-size: 18px; text-transform: uppercase;">${platformDisplay}</strong></td>
+          </tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Company:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${company || 'Not provided'}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Phone:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${phone || 'Not provided'}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Address:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${addressLine1 || 'Not provided'}</td></tr>

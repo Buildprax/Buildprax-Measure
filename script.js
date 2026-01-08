@@ -205,12 +205,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Prepare email data
+            // Get platform from form field to ensure it's captured
+            const platformFromForm = document.getElementById('platform') ? document.getElementById('platform').value.trim() : platform;
+            const finalPlatform = platformFromForm || platform || 'Unknown';
+            
+            console.log('Platform values:', {
+                fromForm: platformFromForm,
+                fromVariable: platform,
+                final: finalPlatform
+            });
+            
             const emailData = {
                 action: 'trial_registration',
                 firstName: firstName,
                 lastName: lastName,
                 email: email,
-                platform: platform,
+                platform: finalPlatform, // Use final platform value
                 company: company,
                 phone: phone,
                 addressLine1: addressLine1,
@@ -220,6 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             console.log('Sending email with data:', emailData);
+            console.log('Platform being sent:', emailData.platform);
             
             // Email API endpoint
             const emailEndpoint = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
