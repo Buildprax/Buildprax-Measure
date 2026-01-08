@@ -196,11 +196,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Close modal first
             closeRegistrationModal();
             
-            // Start download/redirect IMMEDIATELY after validation
-            // Don't wait for email submission to complete
-            console.log('Starting download/redirect for platform:', selectedPlatform);
-            startDownload();
-            
             // Get platform to show appropriate message
             const isWindows = selectedPlatform === 'windows';
             if (isWindows) {
@@ -209,8 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showMessage('Download starting... Check your email for welcome instructions.', 'success');
             }
             
-            // Submit to SendGrid function in the background (don't block download)
-            // This runs asynchronously and doesn't affect the download
+            // Prepare email data
             const emailData = {
                 action: 'trial_registration',
                 firstName: firstName,
@@ -227,16 +221,33 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log('Sending email with data:', emailData);
             
-            fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
+            // Email API endpoint
+            const emailEndpoint = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
+            
+            console.log('Attempting to send email to:', emailEndpoint);
+            
+            // CRITICAL: Send email FIRST, then trigger download
+            // Use keepalive to ensure request completes even if page navigates
+            const emailPromise = fetch(emailEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(emailData),
-                mode: 'cors' // Explicitly set CORS mode
-            })
+                mode: 'cors',
+                credentials: 'omit',
+                keepalive: true // Keep request alive even if page navigates
+            });
+            
+            // Start email request, then trigger download after a short delay
+            // This ensures the email request starts before page navigation
+            emailPromise
             .then(async response => {
+                if (!response || !response.ok) {
+                    throw new Error(`HTTP ${response?.status || 'unknown'}`);
+                }
+                
                 console.log('Email API response status:', response.status);
                 
                 // Try to parse response body
@@ -256,25 +267,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     const errorMsg = responseData.error || responseData.message || `HTTP ${response.status}`;
                     console.error('❌ Registration email submission failed:', errorMsg);
                     console.error('Full response:', responseData);
-                    
-                    // Show a subtle message to user (don't block them since download already happened)
-                    setTimeout(() => {
-                        showMessage('Note: Email notification may not have been sent. If you don\'t receive a welcome email, please contact support@buildprax.com', 'error');
-                    }, 2000);
                 }
             })
             .catch(error => {
                 console.error('❌ Network error sending registration email:', error);
                 console.error('Error details:', {
                     message: error.message,
-                    stack: error.stack
+                    name: error.name
                 });
-                
-                // Show a subtle message to user (don't block them since download already happened)
-                setTimeout(() => {
-                    showMessage('Note: Could not send email notification. If you don\'t receive a welcome email, please contact support@buildprax.com', 'error');
-                }, 2000);
             });
+            
+            // Trigger download after a short delay to let email request start
+            // Use setTimeout to ensure email fetch initiates before download redirects
+            setTimeout(() => {
+                console.log('Starting download/redirect for platform:', selectedPlatform);
+                startDownload();
+            }, 300); // 300ms delay to let email request start
         });
     }
 });
@@ -441,16 +449,18 @@ function startDownload() {
     console.log('Download link:', downloadLink);
     console.log('Filename:', filename);
     
-    // Create download link
-    const link = document.createElement('a');
-    link.href = downloadLink;
-    link.download = filename;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    console.log('Triggering download click');
-    link.click();
-    document.body.removeChild(link);
-    console.log('Download triggered');
+    // For cross-origin downloads, use window.location or window.open
+    // The download attribute doesn't work for cross-origin URLs
+    try {
+        // Try to trigger download by opening the URL
+        // This will work better for cross-origin downloads
+        window.location.href = downloadLink;
+        console.log('Download triggered via window.location');
+    } catch (error) {
+        console.warn('window.location failed, trying window.open:', error);
+        // Fallback to opening in new tab
+        window.open(downloadLink, '_blank');
+    }
     
     // Track download
     const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
