@@ -58,7 +58,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Registration Modal Functions
 function showRegistrationModal() {
-    document.getElementById('registrationModal').style.display = 'block';
+    const modal = document.getElementById('registrationModal');
+    if (modal) {
+        // Get selected platform to show appropriate message
+        const selectedPlatform = localStorage.getItem('selectedPlatform');
+        const isWindows = selectedPlatform === 'windows';
+        
+        // Update modal title/message based on platform
+        const modalTitle = modal.querySelector('h2');
+        const modalDescription = modal.querySelector('p');
+        if (modalTitle && modalDescription) {
+            if (isWindows) {
+                modalTitle.textContent = 'Download BUILDPRAX MEASURE PRO for Windows';
+                modalDescription.textContent = 'Complete the form below to get your download link. You\'ll be redirected to the Microsoft Store after submission.';
+            } else {
+                modalTitle.textContent = 'Download BUILDPRAX MEASURE PRO for macOS';
+                modalDescription.textContent = 'Complete the form below to start your 14-day free trial. You\'ll receive the download link immediately.';
+            }
+        }
+        
+        // Reset form
+        const form = document.getElementById('registrationForm');
+        if (form) {
+            form.reset();
+        }
+        
+        // Show modal
+        modal.style.display = 'block';
+    }
 }
 
 function closeRegistrationModal() {
@@ -96,19 +123,33 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             
             // Get form data
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            const email = document.getElementById('email').value;
-            const company = document.getElementById('company').value;
-            const phone = document.getElementById('phone').value;
-            const addressLine1 = document.getElementById('addressLine1') ? document.getElementById('addressLine1').value : '';
-            const city = document.getElementById('city') ? document.getElementById('city').value : '';
-            const country = document.getElementById('country') ? document.getElementById('country').value : '';
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const company = document.getElementById('company').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const addressLine1 = document.getElementById('addressLine1') ? document.getElementById('addressLine1').value.trim() : '';
+            const city = document.getElementById('city') ? document.getElementById('city').value.trim() : '';
+            const country = document.getElementById('country') ? document.getElementById('country').value.trim() : '';
             const source = document.getElementById('source') ? document.getElementById('source').value : '';
             
-            // Basic validation
-            if (!firstName || !lastName || !email) {
-                showMessage('Please fill in all required fields.', 'error');
+            // Basic validation - ensure required fields are filled
+            if (!firstName || !lastName || !email || !city || !country) {
+                showMessage('Please fill in all required fields (First Name, Last Name, Email, City, and Country).', 'error');
+                return;
+            }
+            
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showMessage('Please enter a valid email address.', 'error');
+                return;
+            }
+            
+            // Check if platform was selected (should be set by downloadForPlatform)
+            const selectedPlatform = localStorage.getItem('selectedPlatform');
+            if (!selectedPlatform) {
+                showMessage('Please select a platform by clicking the download button again.', 'error');
                 return;
             }
             
@@ -145,14 +186,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             })
             .then(response => {
+                // Get platform to show appropriate message
+                const selectedPlatform = localStorage.getItem('selectedPlatform');
+                const isWindows = selectedPlatform === 'windows';
+                
                 if (response.ok) {
-                    // Get platform to show appropriate message
-                    const selectedPlatform = localStorage.getItem('selectedPlatform');
-                    const isWindows = selectedPlatform === 'windows';
-                    
-                    // Start download/redirect
-                    startDownload();
+                    // Close modal first
                     closeRegistrationModal();
+                    
+                    // Start download/redirect AFTER form submission
+                    startDownload();
                     
                     if (isWindows) {
                         showMessage('Registration successful! Redirecting to Microsoft Store... Check your email for welcome instructions.', 'success');
@@ -160,7 +203,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         showMessage('Registration successful! Download starting... Check your email for welcome instructions.', 'success');
                     }
                 } else {
-                    showMessage('Registration failed. Please try again.', 'error');
+                    // Don't start download if form submission failed
+                    showMessage('Registration failed. Please try again or contact support@buildprax.com.', 'error');
                 }
             })
             .catch(error => {
@@ -169,9 +213,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const selectedPlatform = localStorage.getItem('selectedPlatform');
                 const isWindows = selectedPlatform === 'windows';
                 
-                // Still start download/redirect even if form submission fails
-                startDownload();
+                // Still start download/redirect even if form submission fails (network error)
+                // But inform user to contact support if email doesn't arrive
                 closeRegistrationModal();
+                startDownload();
                 
                 if (isWindows) {
                     showMessage('Redirecting to Microsoft Store... If no email arrives, please contact support@buildprax.com.', 'success');
@@ -205,7 +250,25 @@ function scrollToDownload() {
 // Download for Specific Platform (shows registration first)
 function downloadForPlatform(platform) {
     try {
-        // Show registration modal first
+        // Validate platform
+        if (platform !== 'windows' && platform !== 'mac') {
+            console.error('Invalid platform:', platform);
+            showMessage('Invalid platform selected. Please try again.', 'error');
+            return;
+        }
+        
+        // Store selected platform FIRST before showing modal
+        // This ensures platform is available when form is submitted
+        if (typeof Storage !== 'undefined') {
+            localStorage.setItem('selectedPlatform', platform);
+            console.log('Platform stored:', platform);
+        } else {
+            console.error('localStorage not available');
+            showMessage('Your browser does not support local storage. Please update your browser.', 'error');
+            return;
+        }
+        
+        // Show registration modal
         if (typeof showRegistrationModal === 'function') {
             showRegistrationModal();
         } else {
@@ -214,15 +277,13 @@ function downloadForPlatform(platform) {
             const modal = document.getElementById('registrationModal');
             if (modal) {
                 modal.style.display = 'block';
+            } else {
+                showMessage('Registration form not found. Please refresh the page.', 'error');
             }
-        }
-        
-        // Store selected platform for download after registration
-        if (typeof Storage !== 'undefined') {
-            localStorage.setItem('selectedPlatform', platform);
         }
     } catch (error) {
         console.error('Error in downloadForPlatform:', error);
+        showMessage('An error occurred. Please try again.', 'error');
     }
 }
 
@@ -230,19 +291,20 @@ function downloadForPlatform(platform) {
 window.scrollToDownload = scrollToDownload;
 window.downloadForPlatform = downloadForPlatform;
 
-// Start Download Function (called after registration)
+// Start Download Function (called after registration form submission)
 function startDownload() {
     // Get selected platform from localStorage (set by downloadForPlatform)
     const selectedPlatform = localStorage.getItem('selectedPlatform');
     
-    // If no platform selected, detect automatically
-    let platform = selectedPlatform;
-    if (!platform) {
-        const userPlatform = navigator.platform || navigator.userAgentData?.platform || '';
-        const isMac = userPlatform.toUpperCase().includes('MAC') || userPlatform.toUpperCase().includes('IPAD') || userPlatform.toUpperCase().includes('IPHONE');
-        const isWindows = userPlatform.toUpperCase().includes('WIN');
-        platform = isMac ? 'mac' : isWindows ? 'windows' : 'mac'; // Default to Mac
+    // Platform MUST be set by downloadForPlatform - if not, show error
+    if (!selectedPlatform) {
+        console.error('No platform selected - download cannot proceed');
+        showMessage('Platform not selected. Please click the download button again.', 'error');
+        return;
     }
+    
+    const platform = selectedPlatform;
+    console.log('Starting download for platform:', platform);
     
     // If Windows, redirect to Microsoft Store instead of downloading
     if (platform === 'windows') {
@@ -267,9 +329,24 @@ function startDownload() {
         // Web Store URL: https://apps.microsoft.com/detail/9NCJXG15QZS3
         const storeWebUrl = 'https://apps.microsoft.com/detail/9NCJXG15QZS3';
         
-        // Redirect to Microsoft Store
-        // Use location.href to redirect current window (more reliable than window.open)
-        window.location.href = storeWebUrl;
+        // Detect if user is actually on Windows
+        const isActuallyWindows = navigator.platform.toUpperCase().includes('WIN') || 
+                                  navigator.userAgent.toUpperCase().includes('WINDOWS');
+        
+        if (isActuallyWindows) {
+            // On Windows: Try deep link first, then fallback to web URL
+            const storeDeepLink = 'ms-windows-store://pdp/?productid=9NCJXG15QZS3';
+            window.location.href = storeDeepLink;
+            // Fallback to web URL after short delay
+            setTimeout(() => {
+                window.location.href = storeWebUrl;
+            }, 1000);
+        } else {
+            // On Mac/other: Open in new tab (Safari can't redirect to Microsoft Store)
+            window.open(storeWebUrl, '_blank');
+            // Show message that they need to be on Windows
+            showMessage('Please visit the Microsoft Store on a Windows computer to download the app. The Store link has been opened in a new tab.', 'success');
+        }
         
         // Track redirect
         const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
