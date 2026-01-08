@@ -153,6 +153,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
+            console.log('Form submitted for platform:', selectedPlatform);
+            
             // Store customer data
             const customerData = {
                 firstName: firstName,
@@ -166,7 +168,24 @@ document.addEventListener('DOMContentLoaded', function() {
             
             localStorage.setItem('customerData', JSON.stringify(customerData));
             
-            // Submit to SendGrid function
+            // Close modal first
+            closeRegistrationModal();
+            
+            // Start download/redirect IMMEDIATELY after validation
+            // Don't wait for email submission to complete
+            console.log('Starting download/redirect for platform:', selectedPlatform);
+            startDownload();
+            
+            // Get platform to show appropriate message
+            const isWindows = selectedPlatform === 'windows';
+            if (isWindows) {
+                showMessage('Redirecting to Microsoft Store... Check your email for welcome instructions.', 'success');
+            } else {
+                showMessage('Download starting... Check your email for welcome instructions.', 'success');
+            }
+            
+            // Submit to SendGrid function in the background (don't block download)
+            // This runs asynchronously and doesn't affect the download
             fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
                 method: 'POST',
                 headers: {
@@ -186,43 +205,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             })
             .then(response => {
-                // Get platform to show appropriate message
-                const selectedPlatform = localStorage.getItem('selectedPlatform');
-                const isWindows = selectedPlatform === 'windows';
-                
                 if (response.ok) {
-                    // Close modal first
-                    closeRegistrationModal();
-                    
-                    // Start download/redirect AFTER form submission
-                    startDownload();
-                    
-                    if (isWindows) {
-                        showMessage('Registration successful! Redirecting to Microsoft Store... Check your email for welcome instructions.', 'success');
-                    } else {
-                        showMessage('Registration successful! Download starting... Check your email for welcome instructions.', 'success');
-                    }
+                    console.log('Registration email sent successfully');
                 } else {
-                    // Don't start download if form submission failed
-                    showMessage('Registration failed. Please try again or contact support@buildprax.com.', 'error');
+                    console.warn('Registration email submission returned non-ok status:', response.status);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                // Get platform to show appropriate message
-                const selectedPlatform = localStorage.getItem('selectedPlatform');
-                const isWindows = selectedPlatform === 'windows';
-                
-                // Still start download/redirect even if form submission fails (network error)
-                // But inform user to contact support if email doesn't arrive
-                closeRegistrationModal();
-                startDownload();
-                
-                if (isWindows) {
-                    showMessage('Redirecting to Microsoft Store... If no email arrives, please contact support@buildprax.com.', 'success');
-                } else {
-                    showMessage('Download starting... If no email arrives, please contact support@buildprax.com.', 'success');
-                }
+                console.error('Error sending registration email (download still proceeds):', error);
+                // Download already happened, so we just log the error
             });
         });
     }
@@ -293,8 +284,11 @@ window.downloadForPlatform = downloadForPlatform;
 
 // Start Download Function (called after registration form submission)
 function startDownload() {
+    console.log('startDownload() called');
+    
     // Get selected platform from localStorage (set by downloadForPlatform)
     const selectedPlatform = localStorage.getItem('selectedPlatform');
+    console.log('Retrieved platform from localStorage:', selectedPlatform);
     
     // Platform MUST be set by downloadForPlatform - if not, show error
     if (!selectedPlatform) {
@@ -308,6 +302,8 @@ function startDownload() {
     
     // If Windows, redirect to Microsoft Store instead of downloading
     if (platform === 'windows') {
+        console.log('Platform is Windows - redirecting to Microsoft Store');
+        
         // Track Microsoft Store redirect
         if (typeof gtag !== 'undefined') {
             gtag('event', 'microsoft_store_redirect', {
@@ -333,16 +329,21 @@ function startDownload() {
         const isActuallyWindows = navigator.platform.toUpperCase().includes('WIN') || 
                                   navigator.userAgent.toUpperCase().includes('WINDOWS');
         
+        console.log('Is actually Windows:', isActuallyWindows);
+        
         if (isActuallyWindows) {
             // On Windows: Try deep link first, then fallback to web URL
+            console.log('Attempting deep link to Microsoft Store');
             const storeDeepLink = 'ms-windows-store://pdp/?productid=9NCJXG15QZS3';
             window.location.href = storeDeepLink;
             // Fallback to web URL after short delay
             setTimeout(() => {
+                console.log('Fallback: redirecting to web URL');
                 window.location.href = storeWebUrl;
             }, 1000);
         } else {
             // On Mac/other: Open in new tab (Safari can't redirect to Microsoft Store)
+            console.log('Opening Microsoft Store in new tab');
             window.open(storeWebUrl, '_blank');
             // Show message that they need to be on Windows
             showMessage('Please visit the Microsoft Store on a Windows computer to download the app. The Store link has been opened in a new tab.', 'success');
@@ -363,6 +364,8 @@ function startDownload() {
     }
     
     // For Mac, proceed with download
+    console.log('Platform is Mac - starting download');
+    
     // Determine download URL and filename based on platform
     let downloadLink, filename;
     
@@ -375,11 +378,19 @@ function startDownload() {
         filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
     }
     
+    console.log('Download link:', downloadLink);
+    console.log('Filename:', filename);
+    
     // Create download link
     const link = document.createElement('a');
     link.href = downloadLink;
     link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    console.log('Triggering download click');
     link.click();
+    document.body.removeChild(link);
+    console.log('Download triggered');
     
     // Track download
     const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
