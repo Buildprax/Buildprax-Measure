@@ -65,12 +65,17 @@ export async function main(args) {
     console.log('Sending emails to:', { user: email, support: supportEmail });
 
     // Send welcome email to user
+    // Determine platform-specific installation instructions
+    const platformLower = (platform || '').toLowerCase();
+    const isMac = platformLower.includes('mac') || platformLower === 'macos';
+    const isWindows = platformLower.includes('windows') || platformLower === 'windows';
+    
     const toUser = {
       to: email,
       from: fromEmail,
       subject: 'Welcome to BUILDPRAX MEASURE PRO!',
-      text: `Hello ${firstName || ''},\n\nWelcome to BUILDPRAX MEASURE PRO!\n\nGetting started:\n1) Install the app (drag to Applications)\n2) Create a new project\n3) Upload a PDF and set scale\n4) Measure and export to Excel\n\nNeed help? support@buildprax.com\n\n— BUILDPRAX Team`,
-      html: getWelcomeHtml(firstName),
+      text: getWelcomeText(firstName, isMac, isWindows),
+      html: getWelcomeHtml(firstName, isMac, isWindows),
     };
 
     if (welcomeTemplateId) {
@@ -84,7 +89,7 @@ export async function main(args) {
     const supportText = `Action: ${action}
 Name: ${firstName} ${lastName}
 Email: ${email}
-Platform: ${platform || 'Not specified'}
+Platform: ${platform || 'Not specified'} ⚠️ PLATFORM INFO
 Company: ${company || 'Not provided'}
 Phone: ${phone || 'Not provided'}
 Address: ${addressLine1 || 'Not provided'}
@@ -102,7 +107,7 @@ ${amount ? `Amount: ${amount}` : ''}`;
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Action:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${action}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Name:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${firstName} ${lastName}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Email:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${email}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Platform:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${platform || 'Not specified'}</td></tr>
+          <tr style="background-color: #fef3c7;"><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Platform:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><strong style="color: #065F46; font-size: 16px;">${platform || 'Not specified'}</strong></td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Company:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${company || 'Not provided'}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Phone:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${phone || 'Not provided'}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Address:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${addressLine1 || 'Not provided'}</td></tr>
@@ -157,23 +162,82 @@ ${amount ? `Amount: ${amount}` : ''}`;
   }
 }
 
-function getWelcomeHtml(firstName) {
+function getWelcomeText(firstName, isMac, isWindows) {
   const name = firstName || 'there';
+  let installInstructions = '';
+  
+  if (isMac) {
+    installInstructions = `1) Open the downloaded .dmg file\n2) Drag BUILDPRAX MEASURE PRO to your Applications folder\n3) Open the app from Applications (it's fully approved and notarized by Apple - completely safe!)\n4) Create your first project`;
+  } else if (isWindows) {
+    installInstructions = `1) Open the Microsoft Store link\n2) Click "Get" or "Install" to download\n3) Launch the app from the Start menu\n4) Create your first project`;
+  } else {
+    installInstructions = `1) Install the app\n2) Create your first project`;
+  }
+  
+  return `Hello ${name},
+
+Welcome to BUILDPRAX MEASURE PRO!
+
+Your download is ready. BUILDPRAX MEASURE PRO is fully approved, notarized, and safe to install. No security warnings or quarantine issues - it's ready to use!
+
+Getting Started:
+${installInstructions}
+5) Upload a PDF and set scale using a known distance
+6) Measure (Length, Area, Count) and export to Excel
+
+The app is professionally developed, fully tested, and approved for use. You can install it with complete confidence.
+
+Need Help?
+- Installation Guide: https://buildprax.com/installation-guide.html
+- Email Support: support@buildprax.com
+
+— The BUILDPRAX Team`;
+}
+
+function getWelcomeHtml(firstName, isMac, isWindows) {
+  const name = firstName || 'there';
+  let installSteps = '';
+  
+  if (isMac) {
+    installSteps = `
+      <li><strong>Open the downloaded .dmg file</strong></li>
+      <li><strong>Drag BUILDPRAX MEASURE PRO to your Applications folder</strong></li>
+      <li><strong>Open the app from Applications</strong> - It's fully approved and notarized by Apple, completely safe to use!</li>
+      <li><strong>Create your first project</strong></li>`;
+  } else if (isWindows) {
+    installSteps = `
+      <li><strong>Open the Microsoft Store link</strong></li>
+      <li><strong>Click "Get" or "Install"</strong> to download</li>
+      <li><strong>Launch the app</strong> from the Start menu</li>
+      <li><strong>Create your first project</strong></li>`;
+  } else {
+    installSteps = `
+      <li><strong>Install the app</strong></li>
+      <li><strong>Create your first project</strong></li>`;
+  }
+  
   return `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
     <h2 style="color: #10b981;">Welcome to BUILDPRAX MEASURE PRO, ${name}!</h2>
     <p>Thank you for downloading our software. We're excited to help you streamline your construction measurement workflow.</p>
+    
+    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; color: #065F46; font-weight: 600;">✅ <strong>Your download is ready!</strong> BUILDPRAX MEASURE PRO is fully approved, notarized, and safe to install. No security warnings or quarantine issues - it's ready to use right away.</p>
+    </div>
+    
     <h3 style="color: #1e3a8a; margin-top: 30px;">Getting Started:</h3>
-    <ol>
-      <li>Install the app (drag to Applications on macOS)</li>
-      <li>Create your first project</li>
-      <li>Upload a PDF, set scale using a known distance</li>
-      <li>Measure (Length, Area, Count) and export to Excel</li>
+    <ol style="line-height: 1.8;">
+      ${installSteps}
+      <li><strong>Upload a PDF</strong> and set scale using a known distance</li>
+      <li><strong>Measure</strong> (Length, Area, Count) and export to Excel</li>
     </ol>
+    
+    <p style="margin-top: 20px; color: #475569; font-size: 14px;">The app is professionally developed, fully tested, and approved for use. You can install it with complete confidence.</p>
+    
     <h3 style="color: #1e3a8a; margin-top: 30px;">Need Help?</h3>
-    <ul>
-      <li><a href="https://buildprax.com/installation-guide.html">Installation Guide</a></li>
-      <li>Email: <a href="mailto:support@buildprax.com">support@buildprax.com</a></li>
+    <ul style="line-height: 1.8;">
+      <li><a href="https://buildprax.com/installation-guide.html" style="color: #065F46;">Installation Guide</a></li>
+      <li>Email: <a href="mailto:support@buildprax.com" style="color: #065F46;">support@buildprax.com</a></li>
     </ul>
     <p style="margin-top: 30px;">— The BUILDPRAX Team</p>
   </div>`;
