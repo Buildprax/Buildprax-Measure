@@ -1,4 +1,19 @@
 // BUILDPRAX MEASURE PRO - Website JavaScript
+const EMAIL_ENDPOINT = '/api/send-email';
+
+function detectPlatformFromBrowser() {
+    const userAgent = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const combined = `${platform} ${userAgent}`.toLowerCase();
+    if (combined.includes('windows')) {
+        return 'Windows';
+    }
+    if (combined.includes('mac')) {
+        return 'macOS';
+    }
+    return '';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Smooth scrolling for navigation links
     const navLinks = document.querySelectorAll('.nav a[href^="#"]');
@@ -143,7 +158,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const firstName = document.getElementById('firstName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
-            const platform = document.getElementById('platform') ? document.getElementById('platform').value.trim() : '';
+            const platformField = document.getElementById('platform');
+            let platform = platformField ? platformField.value.trim() : '';
             const company = document.getElementById('company').value.trim();
             const phone = document.getElementById('phone').value.trim();
             const addressLine1 = document.getElementById('addressLine1') ? document.getElementById('addressLine1').value.trim() : '';
@@ -151,7 +167,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const country = document.getElementById('country') ? document.getElementById('country').value.trim() : '';
             const source = document.getElementById('source') ? document.getElementById('source').value : '';
             
-            // Validate platform field
+            // Ensure platform is captured (form field, selectedPlatform, or browser detection)
+            const selectedPlatform = localStorage.getItem('selectedPlatform');
+            const inferredPlatform = detectPlatformFromBrowser();
+            if (!platform) {
+                if (selectedPlatform === 'windows') {
+                    platform = 'Windows';
+                } else if (selectedPlatform === 'mac') {
+                    platform = 'macOS';
+                } else if (inferredPlatform) {
+                    platform = inferredPlatform;
+                }
+                if (platformField && platform) {
+                    platformField.value = platform;
+                }
+            }
             if (!platform) {
                 showMessage('Platform is required. Please click the download button again.', 'error');
                 return;
@@ -206,8 +236,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Prepare email data
             // Get platform from form field to ensure it's captured
-            const platformFromForm = document.getElementById('platform') ? document.getElementById('platform').value.trim() : platform;
-            const finalPlatform = platformFromForm || platform || 'Unknown';
+            const platformFromForm = platformField ? platformField.value.trim() : platform;
+            const finalPlatform = platformFromForm || platform || inferredPlatform || 'Unknown';
             
             console.log('Platform values:', {
                 fromForm: platformFromForm,
@@ -233,13 +263,11 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Platform being sent:', emailData.platform);
             
             // Email API endpoint
-            const emailEndpoint = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
-            
-            console.log('Attempting to send email to:', emailEndpoint);
+            console.log('Attempting to send email to:', EMAIL_ENDPOINT);
             
             // CRITICAL: Send email FIRST, then trigger download
             // Use keepalive to ensure request completes even if page navigates
-            const emailPromise = fetch(emailEndpoint, {
+            const emailPromise = fetch(EMAIL_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -568,7 +596,7 @@ function sendLicenseKey(email, paymentDetails) {
     localStorage.setItem('licenses', JSON.stringify(licenses));
     
     // Send license key email to customer and notification to support
-    fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
+    fetch(EMAIL_ENDPOINT, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -685,7 +713,7 @@ function testEmailFunction() {
         source: 'test'
     };
     
-    fetch('https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email', {
+    fetch(EMAIL_ENDPOINT, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

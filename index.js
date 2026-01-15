@@ -13,6 +13,21 @@ export async function main(args) {
     const supportEmail = process.env.SUPPORT_EMAIL || 'support@buildprax.com';
     const welcomeTemplateId = process.env.WELCOME_TEMPLATE_ID || '';
 
+    const corsHeaders = {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    };
+
+    if (args.http?.method === 'OPTIONS') {
+      return {
+        statusCode: 204,
+        headers: corsHeaders,
+        body: ''
+      };
+    }
+
     console.log('Environment check:', {
       hasApiKey: !!apiKey,
       fromEmail,
@@ -23,7 +38,7 @@ export async function main(args) {
       console.error('Missing SENDGRID_API_KEY');
       return {
         statusCode: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
         body: { ok: false, error: 'Missing SENDGRID_API_KEY' }
       };
     }
@@ -36,7 +51,11 @@ export async function main(args) {
     
     console.log('Parsed request data:', JSON.stringify(requestData, null, 2));
     
-    const {
+    const headers = args.http?.headers || {};
+    const userAgentHeader = headers['user-agent'] || headers['User-Agent'] || '';
+    const chPlatformHeader = headers['sec-ch-ua-platform'] || headers['Sec-CH-UA-Platform'] || '';
+
+    let {
       action = 'trial_registration',
       firstName = '',
       lastName = '',
@@ -53,11 +72,20 @@ export async function main(args) {
       amount = ''
     } = requestData;
 
+    if (!platform) {
+      const platformHint = `${chPlatformHeader} ${userAgentHeader}`.toLowerCase();
+      if (platformHint.includes('windows')) {
+        platform = 'Windows';
+      } else if (platformHint.includes('mac')) {
+        platform = 'macOS';
+      }
+    }
+
     if (!email) {
       console.error('Missing email in request');
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
         body: { ok: false, error: 'Missing email' }
       };
     }
@@ -168,12 +196,7 @@ ${amount ? `Amount: ${amount}` : ''}`;
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
+      headers: corsHeaders,
       body: { ok: true, message: 'Emails sent successfully' }
     };
   } catch (err) {
@@ -181,12 +204,7 @@ ${amount ? `Amount: ${amount}` : ''}`;
     console.error('Error stack:', err.stack);
     return {
       statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
+      headers: corsHeaders,
       body: { ok: false, error: err?.message || 'Send failed', details: err.toString() }
     };
   }
@@ -206,16 +224,17 @@ function getWelcomeText(firstName, isMac, isWindows) {
   
   return `Hello ${name},
 
-Welcome to BUILDPRAX MEASURE PRO!
+Thank you for downloading the free trial of BUILDPRAX MEASURE PRO.
+Please test it and let us know if you need any changes or help.
 
-Your download is ready. BUILDPRAX MEASURE PRO is fully approved, notarized, and safe to install. No security warnings or quarantine issues - it's ready to use!
+BUILDPRAX MEASURE PRO is 100% legitimate and approved for both Windows and macOS. We only keep your information for support, and your drawings stay on your own computer — nothing is uploaded to the cloud. Your clients' intellectual property remains safe.
 
 Getting Started:
 ${installInstructions}
 5) Upload a PDF and set scale using a known distance
 6) Measure (Length, Area, Count) and export to Excel
 
-The app is professionally developed, fully tested, and approved for use. You can install it with complete confidence.
+Thank you again for trying BUILDPRAX MEASURE PRO.
 
 Need Help?
 - Installation Guide: https://buildprax.com/installation-guide.html
@@ -248,11 +267,11 @@ function getWelcomeHtml(firstName, isMac, isWindows) {
   
   return `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #10b981;">Welcome to BUILDPRAX MEASURE PRO, ${name}!</h2>
-    <p>Thank you for downloading our software. We're excited to help you streamline your construction measurement workflow.</p>
+    <h2 style="color: #10b981;">Thank you for downloading BUILDPRAX MEASURE PRO, ${name}!</h2>
+    <p>Please test the free trial and let us know if you need any changes or help.</p>
     
     <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #065F46; font-weight: 600;">✅ <strong>Your download is ready!</strong> BUILDPRAX MEASURE PRO is fully approved, notarized, and safe to install. No security warnings or quarantine issues - it's ready to use right away.</p>
+      <p style="margin: 0; color: #065F46; font-weight: 600;">✅ <strong>Your download is ready.</strong> BUILDPRAX MEASURE PRO is 100% legitimate and approved for Windows and macOS.</p>
     </div>
     
     <h3 style="color: #1e3a8a; margin-top: 30px;">Getting Started:</h3>
@@ -262,7 +281,9 @@ function getWelcomeHtml(firstName, isMac, isWindows) {
       <li><strong>Measure</strong> (Length, Area, Count) and export to Excel</li>
     </ol>
     
-    <p style="margin-top: 20px; color: #475569; font-size: 14px;">The app is professionally developed, fully tested, and approved for use. You can install it with complete confidence.</p>
+    <p style="margin-top: 20px; color: #475569; font-size: 14px;">
+      We only keep your information for support, and all drawings stay on your own hard drive — nothing is uploaded to the cloud. Your clients' intellectual property remains safe.
+    </p>
     
     <h3 style="color: #1e3a8a; margin-top: 30px;">Need Help?</h3>
     <ul style="line-height: 1.8;">
