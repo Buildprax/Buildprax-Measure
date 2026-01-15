@@ -1,5 +1,7 @@
 // BUILDPRAX MEASURE PRO - Website JavaScript
-const EMAIL_ENDPOINT = '/api/send-email';
+// If you later add Functions to App Platform at /api/send-email,
+// you can switch this to '/api/send-email'.
+const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
 
 function detectPlatformFromBrowser() {
     const userAgent = navigator.userAgent || '';
@@ -201,7 +203,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Check if platform was selected (should be set by downloadForPlatform)
-            const selectedPlatform = localStorage.getItem('selectedPlatform');
             if (!selectedPlatform) {
                 showMessage('Please select a platform by clicking the download button again.', 'error');
                 return;
