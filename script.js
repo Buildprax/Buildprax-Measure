@@ -127,9 +127,11 @@ function closeRegistrationModal() {
 }
 
 // Payment Modal Functions
-function showPaymentModal() {
+function showPaymentModal(subscriptionType = 'yearly') {
+    // Store selected subscription type
+    localStorage.setItem('selectedSubscriptionPlan', subscriptionType);
     document.getElementById('paymentModal').style.display = 'block';
-    initializePayPalButton();
+    initializePayPalButton(subscriptionType);
 }
 
 function closePaymentModal() {
@@ -210,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log('Form submitted for platform:', selectedPlatform);
             
-            // Store customer data
+            // Store customer data (NO customer number for trial registrations)
             const customerData = {
                 firstName: firstName,
                 lastName: lastName,
@@ -258,6 +260,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 city: city,
                 country: country,
                 source: source
+                // NOTE: Customer numbers are NOT assigned for trial registrations
+                // Customer numbers are only assigned when a subscription is purchased
             };
             
             console.log('Sending email with data:', emailData);
@@ -478,12 +482,13 @@ function startDownload() {
     let downloadLink, filename;
     
     if (platform === 'mac') {
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
-        filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
+        // Updated to latest version on DigitalOcean
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.1-arm64.dmg';
+        filename = 'BUILDPRAX MEASURE PRO-1.0.1-arm64.dmg';
     } else {
         // Default to Mac
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.0-arm64.dmg';
-        filename = 'BUILDPRAX MEASURE PRO-1.0.0-arm64.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BUILDPRAX%20MEASURE%20PRO-1.0.1-arm64.dmg';
+        filename = 'BUILDPRAX MEASURE PRO-1.0.1-arm64.dmg';
     }
     
     console.log('Download link:', downloadLink);
@@ -518,10 +523,21 @@ function startDownload() {
 // Payment method selection no longer needed - PayPal handles both PayPal and Card payments
 
 // PayPal Button Initialization - Smart Payment Button (supports both PayPal and Card)
-function initializePayPalButton() {
+function initializePayPalButton(subscriptionType = 'yearly') {
     // Clear any existing buttons
     const container = document.getElementById('paypal-button-container');
     container.innerHTML = '';
+    
+    // Get pricing based on subscription type
+    const pricing = {
+        'monthly': { amount: '10.00', description: 'BUILDPRAX MEASURE PRO - Monthly Subscription' },
+        'quarterly': { amount: '30.00', description: 'BUILDPRAX MEASURE PRO - Quarterly Subscription' },
+        'halfyearly': { amount: '55.00', description: 'BUILDPRAX MEASURE PRO - Half-Yearly Subscription' },
+        'half-yearly': { amount: '55.00', description: 'BUILDPRAX MEASURE PRO - Half-Yearly Subscription' },
+        'yearly': { amount: '100.00', description: 'BUILDPRAX MEASURE PRO - Annual Subscription' }
+    };
+    
+    const selectedPricing = pricing[subscriptionType] || pricing['yearly'];
     
     // Smart Payment Button - shows both PayPal and Card options
     paypal.Buttons({
@@ -535,10 +551,10 @@ function initializePayPalButton() {
             return actions.order.create({
                 purchase_units: [{
                     amount: {
-                        value: '100.00',
+                        value: selectedPricing.amount,
                         currency_code: 'USD'
                     },
-                    description: 'BUILDPRAX MEASURE PRO - Pro License (1 Year)'
+                    description: selectedPricing.description
                 }]
             });
         },
@@ -557,8 +573,13 @@ function initializePayPalButton() {
                     return;
                 }
                 
+                // Get subscription type from stored value or default to yearly
+                const storedPlan = localStorage.getItem('selectedSubscriptionPlan');
+                const subscriptionType = storedPlan || 'yearly';
+                const additionalLicenses = 0; // Additional licenses handled separately via contact sales
+                
                 // Generate and send license key
-                sendLicenseKey(userEmail, details);
+                sendLicenseKey(userEmail, details, subscriptionType, Math.max(0, additionalLicenses));
                 
                 // Close modal
                 closePaymentModal();
@@ -580,23 +601,53 @@ function initializePayPalButton() {
 
 // Card payment is now handled by PayPal SDK - no separate function needed
 
-// Send License Key Function
-function sendLicenseKey(email, paymentDetails) {
-    // Generate license key
-    const licenseKey = generateLicenseKey();
+// Send License Key Function - Updated with customer number and subscription type
+function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0) {
+    // Get or create customer number ONLY when subscription is purchased
+    // Customer numbers are NOT assigned for trial downloads, only for paid subscriptions
+    const customerNumber = getCustomerNumber(email);
     
-    // Store license key
+    // Get customer data for name
+    const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
+    const firstName = customerData.firstName || '';
+    const lastName = customerData.lastName || '';
+    
+    // Generate license keys (one for base subscription, plus additional if yearly)
+    const licenseKeys = [];
+    const baseKey = generateLicenseKey(subscriptionType);
+    licenseKeys.push(baseKey);
+    
+    // If yearly subscription with additional licenses, generate more keys
+    if (subscriptionType === 'yearly' && additionalLicenses > 0) {
+        for (let i = 0; i < additionalLicenses; i++) {
+            licenseKeys.push(generateLicenseKey('yearly'));
+        }
+    }
+    
+    // Store license keys
     const licenses = JSON.parse(localStorage.getItem('licenses') || '[]');
-    licenses.push({
-        email: email,
-        licenseKey: licenseKey,
-        timestamp: new Date().toISOString(),
-        paymentId: paymentDetails.id,
-        amount: '100.00'
+    licenseKeys.forEach((key, index) => {
+        licenses.push({
+            email: email,
+            licenseKey: key,
+            customerNumber: customerNumber,
+            subscriptionType: subscriptionType,
+            licenseNumber: index + 1,
+            totalLicenses: licenseKeys.length,
+            timestamp: new Date().toISOString(),
+            paymentId: paymentDetails.id,
+            amount: paymentDetails.purchase_units?.[0]?.amount?.value || '100.00'
+        });
     });
     localStorage.setItem('licenses', JSON.stringify(licenses));
     
-    // Send license key email to customer and notification to support
+    // Calculate total amount
+    let totalAmount = '100.00';
+    if (paymentDetails.purchase_units && paymentDetails.purchase_units[0] && paymentDetails.purchase_units[0].amount) {
+        totalAmount = paymentDetails.purchase_units[0].amount.value;
+    }
+    
+    // Send license key email to customer (with ALL keys) and notification to support
     fetch(EMAIL_ENDPOINT, {
         method: 'POST',
         headers: {
@@ -604,43 +655,89 @@ function sendLicenseKey(email, paymentDetails) {
         },
         body: JSON.stringify({
             action: 'license_purchase',
-            firstName: '',
-            lastName: '',
+            firstName: firstName,
+            lastName: lastName,
             email: email,
-            company: '',
-            phone: '',
-            addressLine1: '',
-            city: '',
-            country: '',
+            company: customerData.company || '',
+            phone: customerData.phone || '',
+            addressLine1: customerData.addressLine1 || '',
+            city: customerData.city || '',
+            country: customerData.country || '',
             source: '',
-            licenseKey: licenseKey,
+            licenseKey: licenseKeys.join(', '), // Send all keys if multiple
+            customerNumber: customerNumber,
+            subscriptionType: subscriptionType,
             paymentId: paymentDetails.id || 'manual',
-            amount: '100.00'
+            amount: totalAmount
         })
     })
     .then(response => {
         if (response.ok) {
-            console.log('License key notification sent to support');
+            console.log('License key email sent to customer and notification sent to support');
+        } else {
+            console.error('Failed to send license key email:', response.status);
         }
     })
     .catch(error => {
-        console.error('Error sending license key notification:', error);
+        console.error('Error sending license key email:', error);
     });
     
-    console.log('License key generated:', licenseKey);
+    console.log('License keys generated:', licenseKeys);
+    console.log('Customer number:', customerNumber);
 }
 
-// Generate License Key Function
-function generateLicenseKey() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 16; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-        if (i === 3 || i === 7 || i === 11) {
-            result += '-';
-        }
+// Get or create customer number for an email
+// IMPORTANT: Customer numbers are ONLY assigned when a subscription is purchased, NOT for trial downloads
+// This function is only called from sendLicenseKey() when a payment is completed
+function getCustomerNumber(email) {
+    // Check if customer already has a number (from previous subscription)
+    const customerNumbers = JSON.parse(localStorage.getItem('customerNumbers') || '{}');
+    if (customerNumbers[email]) {
+        console.log('Using existing customer number for:', email, customerNumbers[email]);
+        return customerNumbers[email];
     }
-    return result;
+    
+    // Generate new customer number (only called when subscription is purchased)
+    const existingNumbers = Object.values(customerNumbers);
+    let num = 101;
+    while (existingNumbers.includes(`BMP${String(num).padStart(5, '0')}`)) {
+        num++;
+        if (num > 99999) num = 101; // Reset if we hit the limit
+    }
+    
+    const customerNumber = `BMP${String(num).padStart(5, '0')}`;
+    customerNumbers[email] = customerNumber;
+    localStorage.setItem('customerNumbers', JSON.stringify(customerNumbers));
+    console.log('Generated new customer number for subscription purchase:', email, customerNumber);
+    return customerNumber;
+}
+
+// Generate License Key Function - Updated to support subscription types
+function generateLicenseKey(subscriptionType = 'yearly') {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    
+    function generateRandomString(length) {
+        let result = '';
+        for (let i = 0; i < length; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+    
+    // Generate key based on subscription type
+    switch(subscriptionType.toLowerCase()) {
+        case 'monthly':
+            return `BUILDPRAX-MON-${generateRandomString(6)}-${generateRandomString(6)}`;
+        case 'quarterly':
+            return `BUILDPRAX-QTR-${generateRandomString(6)}-${generateRandomString(6)}`;
+        case 'halfyearly':
+        case 'half-yearly':
+            return `BUILDPRAX-HLF-${generateRandomString(6)}-${generateRandomString(6)}`;
+        case 'yearly':
+        default:
+            const year = new Date().getFullYear() + 1;
+            return `BUILDPRAX-${year}-${generateRandomString(6)}-${generateRandomString(6)}`;
+    }
 }
 
 // Show Message Function
