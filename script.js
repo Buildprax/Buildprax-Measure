@@ -130,8 +130,73 @@ function closeRegistrationModal() {
 function showPaymentModal(subscriptionType = 'yearly') {
     // Store selected subscription type
     localStorage.setItem('selectedSubscriptionPlan', subscriptionType);
+    
+    // Show/hide license quantity section based on subscription type
+    // Only show for annual (yearly) subscriptions
+    const licenseQuantitySection = document.getElementById('licenseQuantitySection');
+    const licenseQuantity = document.getElementById('licenseQuantity');
+    
+    if (subscriptionType === 'yearly') {
+        // Show license quantity selector for annual subscriptions
+        if (licenseQuantitySection) {
+            licenseQuantitySection.style.display = 'block';
+        }
+        if (licenseQuantity) {
+            licenseQuantity.value = '1';
+        }
+        updateLicensePricing();
+    } else {
+        // Hide license quantity selector for non-annual subscriptions
+        if (licenseQuantitySection) {
+            licenseQuantitySection.style.display = 'none';
+        }
+        if (licenseQuantity) {
+            licenseQuantity.value = '1'; // Reset to 1 for non-annual
+        }
+    }
+    
     document.getElementById('paymentModal').style.display = 'block';
-    initializePayPalButton(subscriptionType);
+    initializePayPalSubscription(subscriptionType);
+}
+
+// Update license pricing display
+function updateLicensePricing() {
+    const licenseQuantity = document.getElementById('licenseQuantity');
+    const pricingInfo = document.getElementById('licensePricingInfo');
+    
+    if (!licenseQuantity || !pricingInfo) return;
+    
+    const quantity = parseInt(licenseQuantity.value) || 1;
+    
+    // Ensure minimum of 1 license
+    if (quantity < 1) {
+        licenseQuantity.value = '1';
+        return;
+    }
+    
+    // Only show pricing for annual subscriptions
+    const subscriptionType = localStorage.getItem('selectedSubscriptionPlan') || 'yearly';
+    
+    if (subscriptionType !== 'yearly') {
+        // For non-annual, always 1 license
+        pricingInfo.textContent = 'Single license only for this subscription type.';
+        return;
+    }
+    
+    // Annual subscription pricing
+    const basePrice = 100.00; // First license
+    const additionalPrice = 90.00; // Per additional license per year
+    
+    if (quantity === 1) {
+        pricingInfo.textContent = `Total: $${basePrice.toFixed(2)}/year (1 license)`;
+    } else {
+        const additionalLicenses = quantity - 1;
+        const total = basePrice + (additionalLicenses * additionalPrice);
+        pricingInfo.textContent = `Total: $${total.toFixed(2)}/year (1 license at $${basePrice.toFixed(2)}/year + ${additionalLicenses} additional at $${additionalPrice.toFixed(2)}/year each)`;
+    }
+    
+    // Reinitialize PayPal button with updated quantity
+    initializePayPalSubscription(subscriptionType);
 }
 
 function closePaymentModal() {
@@ -522,87 +587,224 @@ function startDownload() {
 
 // Payment method selection no longer needed - PayPal handles both PayPal and Card payments
 
-// PayPal Button Initialization - Smart Payment Button (supports both PayPal and Card)
-function initializePayPalButton(subscriptionType = 'yearly') {
+// PayPal Subscription Initialization - Automatic Recurring Billing with License Quantity
+function initializePayPalSubscription(subscriptionType = 'yearly') {
     // Clear any existing buttons
     const container = document.getElementById('paypal-button-container');
     container.innerHTML = '';
     
-    // Get pricing based on subscription type
-    const pricing = {
-        'monthly': { amount: '10.00', description: 'BUILDPRAX MEASURE PRO - Monthly Subscription' },
-        'quarterly': { amount: '30.00', description: 'BUILDPRAX MEASURE PRO - Quarterly Subscription' },
-        'halfyearly': { amount: '55.00', description: 'BUILDPRAX MEASURE PRO - Half-Yearly Subscription' },
-        'half-yearly': { amount: '55.00', description: 'BUILDPRAX MEASURE PRO - Half-Yearly Subscription' },
-        'yearly': { amount: '100.00', description: 'BUILDPRAX MEASURE PRO - Annual Subscription' }
+    // Get license quantity (only for annual subscriptions)
+    let quantity = 1;
+    if (subscriptionType === 'yearly') {
+        const licenseQuantity = document.getElementById('licenseQuantity');
+        quantity = parseInt(licenseQuantity ? licenseQuantity.value : '1') || 1;
+        // Ensure minimum of 1
+        if (quantity < 1) quantity = 1;
+    } else {
+        // Non-annual subscriptions are always single license
+        quantity = 1;
+    }
+    
+    // Get billing cycle based on subscription type
+    const billingCycles = {
+        'monthly': { interval_unit: 'MONTH', interval_count: 1, basePrice: 10.00 },
+        'quarterly': { interval_unit: 'MONTH', interval_count: 3, basePrice: 30.00 },
+        'half-yearly': { interval_unit: 'MONTH', interval_count: 6, basePrice: 50.00 },
+        'halfyearly': { interval_unit: 'MONTH', interval_count: 6, basePrice: 50.00 },
+        'yearly': { interval_unit: 'YEAR', interval_count: 1, basePrice: 100.00 }
     };
     
-    const selectedPricing = pricing[subscriptionType] || pricing['yearly'];
+    const billingCycle = billingCycles[subscriptionType] || billingCycles['yearly'];
     
-    // Smart Payment Button - shows both PayPal and Card options
+    // Calculate pricing
+    // For annual: first license $100, additional $90 each per year
+    // For non-annual: single license only at base price
+    const subscriptionBasePrice = billingCycle.basePrice;
+    let subscriptionTotalAmount;
+    
+    if (subscriptionType === 'yearly' && quantity > 1) {
+        // Annual with multiple licenses
+        const additionalPrice = 90.00; // Per additional license per year
+        const additionalLicenses = quantity - 1;
+        subscriptionTotalAmount = subscriptionBasePrice + (additionalLicenses * additionalPrice);
+    } else {
+        // Single license (all non-annual, or annual with 1 license)
+        subscriptionTotalAmount = subscriptionBasePrice;
+        quantity = 1; // Force to 1 for non-annual
+    }
+    
+    const additionalLicenses = subscriptionType === 'yearly' ? Math.max(0, quantity - 1) : 0;
+    
+    console.log('Setting up subscription:', {
+        subscriptionType,
+        quantity,
+        basePrice: subscriptionBasePrice,
+        additionalLicenses,
+        totalAmount: subscriptionTotalAmount
+    });
+    
+    // Note: Quantity is read directly from input field in onApprove handlers
+    
+    // PayPal Subscriptions API - Creates automatic recurring billing
+    // Note: PayPal requires plans to be created server-side OR we use a billing agreement approach
+    // For now, using Orders API with billing agreement for automatic renewal
     paypal.Buttons({
         style: {
             layout: 'vertical',
             color: 'gold',
             shape: 'rect',
-            label: 'paypal'
+            label: 'subscribe'
         },
-        createOrder: function(data, actions) {
-            return actions.order.create({
-                purchase_units: [{
-                    amount: {
-                        value: selectedPricing.amount,
-                        currency_code: 'USD'
+        createSubscription: function(data, actions) {
+            // Create a subscription with dynamic plan
+            // PayPal will handle the recurring billing automatically
+            return actions.subscription.create({
+                plan_id: null, // Dynamic plan creation
+                application_context: {
+                    brand_name: 'BUILDPRAX MEASURE PRO',
+                    locale: 'en-US',
+                    shipping_preference: 'NO_SHIPPING',
+                    user_action: 'SUBSCRIBE_NOW',
+                    payment_method: {
+                        payer_selected: 'PAYPAL', // Customer can choose PayPal or Card
+                        payee_preferred: 'IMMEDIATE_PAYMENT_REQUIRED'
                     },
-                    description: selectedPricing.description
-                }]
+                    return_url: window.location.href,
+                    cancel_url: window.location.href
+                },
+                plan: {
+                    name: subscriptionType === 'yearly' && quantity > 1 
+                        ? `BUILDPRAX MEASURE PRO - Annual (${quantity} licenses: $100 + ${quantity - 1} × $90/year)`
+                        : `BUILDPRAX MEASURE PRO - ${subscriptionType.charAt(0).toUpperCase() + subscriptionType.slice(1)} Subscription`,
+                    description: subscriptionType === 'yearly' && quantity > 1
+                        ? `${quantity} licenses - Annual subscription (1 license at $100/year + ${quantity - 1} additional at $90/year each) - Auto-renews until cancelled`
+                        : `1 license - ${subscriptionType} subscription - Auto-renews until cancelled`,
+                    type: 'INFINITE',
+                    payment_preferences: {
+                        auto_bill_outstanding: true,
+                        setup_fee: {
+                            value: subscriptionTotalAmount.toFixed(2),
+                            currency_code: 'USD'
+                        },
+                        setup_fee_failure_action: 'CONTINUE',
+                        payment_failure_threshold: 2
+                    },
+                    billing_cycles: [
+                        {
+                            frequency: {
+                                interval_unit: billingCycle.interval_unit,
+                                interval_count: billingCycle.interval_count
+                            },
+                            tenure_type: 'REGULAR',
+                            sequence: 1,
+                            total_cycles: 0, // 0 = infinite (recurring until cancelled)
+                            pricing_scheme: {
+                                fixed_price: {
+                                    value: subscriptionTotalAmount.toFixed(2),
+                                    currency_code: 'USD'
+                                }
+                            }
+                        }
+                    ],
+                    taxes: {
+                        percentage: '0',
+                        inclusive: false
+                    }
+                }
             });
         },
         onApprove: function(data, actions) {
-            return actions.order.capture().then(function(details) {
-                // Payment successful (works for both PayPal and Card)
-                console.log('Payment completed:', details);
+            console.log('Subscription approved:', data);
+            
+            // Get subscription details to confirm it's active
+            return actions.subscription.get().then(function(details) {
+                console.log('Subscription details:', details);
                 
                 // Get customer data
                 const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
-                const userEmail = customerData.email || (details.payer && details.payer.email_addresses && details.payer.email_addresses[0] ? details.payer.email_addresses[0].email_address : '');
+                const userEmail = customerData.email || (details.subscriber && details.subscriber.email_address ? details.subscriber.email_address : '');
                 
                 if (!userEmail) {
                     console.error('No email found');
-                    showMessage('Payment successful but could not retrieve email. Please contact support@buildprax.com with your payment ID: ' + details.id, 'error');
+                    showMessage('Subscription created but could not retrieve email. Please contact support@buildprax.com with your subscription ID: ' + data.subscriptionID, 'error');
                     return;
                 }
                 
-                // Get subscription type from stored value or default to yearly
+                // Get subscription type and quantity
                 const storedPlan = localStorage.getItem('selectedSubscriptionPlan');
                 const subscriptionType = storedPlan || 'yearly';
-                const additionalLicenses = 0; // Additional licenses handled separately via contact sales
                 
-                // Generate and send license key
-                sendLicenseKey(userEmail, details, subscriptionType, Math.max(0, additionalLicenses));
+                // For annual subscriptions, get quantity from input
+                // For non-annual, always 1 license
+                let quantity = 1;
+                if (subscriptionType === 'yearly') {
+                    const licenseQuantity = document.getElementById('licenseQuantity');
+                    quantity = parseInt(licenseQuantity ? licenseQuantity.value : '1') || 1;
+                    if (quantity < 1) quantity = 1;
+                }
+                const additionalLicenses = subscriptionType === 'yearly' ? Math.max(0, quantity - 1) : 0;
+                
+                // Generate and send license keys
+                sendLicenseKey(userEmail, {
+                    id: data.subscriptionID,
+                    subscriptionID: data.subscriptionID,
+                    status: details.status || 'ACTIVE',
+                    type: 'subscription'
+                }, subscriptionType, additionalLicenses, quantity);
                 
                 // Close modal
                 closePaymentModal();
                 
                 // Show success message
-                showMessage('Payment successful! Your license key has been sent to your email. Thank you for supporting BUILDPRAX!', 'success');
+                const renewalPeriod = subscriptionType === 'monthly' ? 'month' : subscriptionType === 'quarterly' ? '3 months' : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 'year';
+                const licenseText = quantity > 1 ? `${quantity} licenses` : '1 license';
+                showMessage(`Subscription successful! You've been charged $${subscriptionTotalAmount.toFixed(2)} for ${licenseText}. Your license key${quantity > 1 ? 's' : ''} have been sent to your email. Your subscription will renew automatically every ${renewalPeriod} until you cancel from your PayPal account.`, 'success');
+            }).catch(function(err) {
+                console.error('Error getting subscription details:', err);
+                // Still process the subscription even if details fetch fails
+                const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
+                const userEmail = customerData.email || '';
+                if (userEmail) {
+                    const storedPlan = localStorage.getItem('selectedSubscriptionPlan');
+                    const subscriptionType = storedPlan || 'yearly';
+                    
+                    // For annual subscriptions, get quantity from input
+                    // For non-annual, always 1 license
+                    let quantity = 1;
+                    if (subscriptionType === 'yearly') {
+                        const licenseQuantity = document.getElementById('licenseQuantity');
+                        quantity = parseInt(licenseQuantity ? licenseQuantity.value : '1') || 1;
+                        if (quantity < 1) quantity = 1;
+                    }
+                    const additionalLicenses = subscriptionType === 'yearly' ? Math.max(0, quantity - 1) : 0;
+                    
+                    sendLicenseKey(userEmail, {
+                        id: data.subscriptionID,
+                        subscriptionID: data.subscriptionID,
+                        status: 'ACTIVE',
+                        type: 'subscription'
+                    }, subscriptionType, additionalLicenses, quantity);
+                    
+                    closePaymentModal();
+                    showMessage(`Subscription successful! Your license key${quantity > 1 ? 's' : ''} have been sent to your email.`, 'success');
+                }
             });
         },
         onError: function(err) {
-            console.error('Payment error:', err);
-            showMessage('Payment failed. Please try again or contact support@buildprax.com', 'error');
+            console.error('Subscription error:', err);
+            showMessage('Subscription setup failed. Please try again or contact support@buildprax.com', 'error');
         },
         onCancel: function(data) {
-            console.log('Payment cancelled:', data);
-            showMessage('Payment was cancelled.', 'error');
+            console.log('Subscription cancelled:', data);
+            showMessage('Subscription setup was cancelled.', 'error');
         }
     }).render('#paypal-button-container');
 }
 
 // Card payment is now handled by PayPal SDK - no separate function needed
 
-// Send License Key Function - Updated with customer number and subscription type
-function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0) {
+// Send License Key Function - Updated with customer number, subscription type, and multiple licenses
+function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0, totalLicenses = 1) {
     // Get or create customer number ONLY when subscription is purchased
     // Customer numbers are NOT assigned for trial downloads, only for paid subscriptions
     const customerNumber = getCustomerNumber(email);
@@ -612,20 +814,18 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
     const firstName = customerData.firstName || '';
     const lastName = customerData.lastName || '';
     
-    // Generate license keys (one for base subscription, plus additional if yearly)
+    // Generate license keys for all licenses (first + additional)
     const licenseKeys = [];
-    const baseKey = generateLicenseKey(subscriptionType);
-    licenseKeys.push(baseKey);
-    
-    // If yearly subscription with additional licenses, generate more keys
-    if (subscriptionType === 'yearly' && additionalLicenses > 0) {
-        for (let i = 0; i < additionalLicenses; i++) {
-            licenseKeys.push(generateLicenseKey('yearly'));
-        }
+    for (let i = 0; i < totalLicenses; i++) {
+        licenseKeys.push(generateLicenseKey(subscriptionType));
     }
     
     // Store license keys
     const licenses = JSON.parse(localStorage.getItem('licenses') || '[]');
+    const basePrice = subscriptionType === 'monthly' ? 10.00 : subscriptionType === 'quarterly' ? 30.00 : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? 50.00 : 100.00;
+    const additionalPrice = 90.00;
+    const totalAmount = basePrice + (additionalLicenses * additionalPrice);
+    
     licenseKeys.forEach((key, index) => {
         licenses.push({
             email: email,
@@ -635,17 +835,13 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
             licenseNumber: index + 1,
             totalLicenses: licenseKeys.length,
             timestamp: new Date().toISOString(),
-            paymentId: paymentDetails.id,
-            amount: paymentDetails.purchase_units?.[0]?.amount?.value || '100.00'
+            paymentId: paymentDetails.id || paymentDetails.subscriptionID || 'manual',
+            subscriptionID: paymentDetails.subscriptionID || null,
+            isRecurring: !!paymentDetails.subscriptionID,
+            amount: totalAmount.toFixed(2)
         });
     });
     localStorage.setItem('licenses', JSON.stringify(licenses));
-    
-    // Calculate total amount
-    let totalAmount = '100.00';
-    if (paymentDetails.purchase_units && paymentDetails.purchase_units[0] && paymentDetails.purchase_units[0].amount) {
-        totalAmount = paymentDetails.purchase_units[0].amount.value;
-    }
     
     // Send license key email to customer (with ALL keys) and notification to support
     fetch(EMAIL_ENDPOINT, {
@@ -667,8 +863,11 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
             licenseKey: licenseKeys.join(', '), // Send all keys if multiple
             customerNumber: customerNumber,
             subscriptionType: subscriptionType,
-            paymentId: paymentDetails.id || 'manual',
-            amount: totalAmount
+            totalLicenses: totalLicenses,
+            paymentId: paymentDetails.id || paymentDetails.subscriptionID || 'manual',
+            subscriptionID: paymentDetails.subscriptionID || null,
+            isRecurring: !!paymentDetails.subscriptionID,
+            amount: totalAmount.toFixed(2)
         })
     })
     .then(response => {

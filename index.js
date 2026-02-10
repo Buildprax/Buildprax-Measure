@@ -1,8 +1,43 @@
 // DigitalOcean App Platform Functions - Node.js (HTTP Trigger)
 // Expects JSON body with: action, firstName, lastName, email, company, phone, platform, addressLine1, city, country, source
-// Environment variables: SENDGRID_API_KEY, FROM_EMAIL, SUPPORT_EMAIL, WELCOME_TEMPLATE_ID (optional)
+// Environment variables: SENDGRID_API_KEY, FROM_EMAIL, SUPPORT_EMAIL
+// Note: Uses SendGrid Web API directly (no external dependencies required).
 
-import sgMail from '@sendgrid/mail';
+import https from 'https';
+
+function sendEmail(apiKey, payload) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const req = https.request(
+      {
+        hostname: 'api.sendgrid.com',
+        path: '/v3/mail/send',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data)
+        }
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ statusCode: res.statusCode, body });
+          } else {
+            reject(new Error(`SendGrid error ${res.statusCode}: ${body}`));
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
 
 export async function main(args) {
   console.log('Email function called with args:', JSON.stringify(args, null, 2));
@@ -11,7 +46,6 @@ export async function main(args) {
     const apiKey = process.env.SENDGRID_API_KEY;
     const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com';
     const supportEmail = process.env.SUPPORT_EMAIL || 'support@buildprax.com';
-    const welcomeTemplateId = process.env.WELCOME_TEMPLATE_ID || '';
 
     const corsHeaders = {
       'Content-Type': 'application/json',
@@ -43,8 +77,6 @@ export async function main(args) {
       };
     }
 
-    sgMail.setApiKey(apiKey);
-
     // DigitalOcean Functions may pass data in args.body for HTTP requests, or directly in args
     // Also check for http.body if it's an HTTP trigger
     const requestData = args.http?.body ? JSON.parse(args.http.body) : (args.body ? (typeof args.body === 'string' ? JSON.parse(args.body) : args.body) : args || {});
@@ -68,6 +100,8 @@ export async function main(args) {
       country = '',
       source = '',
       licenseKey = '',
+      customerNumber = '',
+      subscriptionType = '',
       paymentId = '',
       amount = ''
     } = requestData;
@@ -104,22 +138,21 @@ export async function main(args) {
     
     // CRITICAL: NEVER use template - it contains quarantine language
     // Always use our safe, approved email content
+    // If this is a license purchase, include the license key
     const toUser = {
       to: email,
       from: fromEmail,
-      subject: 'Welcome to BUILDPRAX MEASURE PRO!',
-      text: getWelcomeText(firstName, isMac, isWindows),
-      html: getWelcomeHtml(firstName, isMac, isWindows),
+      subject: action === 'license_purchase' 
+        ? 'Your BUILDPRAX MEASURE PRO License Key' 
+        : 'Welcome to BUILDPRAX MEASURE PRO!',
+      text: action === 'license_purchase' 
+        ? getLicensePurchaseText(firstName, licenseKey, customerNumber)
+        : getWelcomeText(firstName, isMac, isWindows),
+      html: action === 'license_purchase'
+        ? getLicensePurchaseHtml(firstName, licenseKey, customerNumber)
+        : getWelcomeHtml(firstName, isMac, isWindows),
     };
     
-    // DO NOT set templateId - we want to use our safe content, not the template
-    // If welcomeTemplateId exists, log a warning but DO NOT use it
-    if (welcomeTemplateId) {
-      console.warn('⚠️ WELCOME_TEMPLATE_ID environment variable is set but will be IGNORED');
-      console.warn('⚠️ Using safe email content instead to avoid quarantine language');
-      console.warn('⚠️ To fix: Remove WELCOME_TEMPLATE_ID from DigitalOcean environment variables');
-    }
-
     // Send notification to support with ALL form fields
     const supportSubject = action === 'license_purchase' ? 'New License Purchase' : 'New Trial Registration';
     
@@ -139,9 +172,11 @@ Address: ${addressLine1 || 'Not provided'}
 City: ${city || 'Not provided'}
 Country: ${country || 'Not provided'}
 Source: ${source || 'Not provided'}
-${licenseKey ? `License Key: ${licenseKey}` : ''}
-${paymentId ? `Payment ID: ${paymentId}` : ''}
-${amount ? `Amount: ${amount}` : ''}`;
+          ${licenseKey ? `License Key(s): ${licenseKey}` : ''}
+          ${customerNumber ? `Customer Number: ${customerNumber}` : ''}
+          ${subscriptionType ? `Subscription Type: ${subscriptionType}` : ''}
+          ${paymentId ? `Payment ID: ${paymentId}` : ''}
+          ${amount ? `Amount: $${amount}` : ''}`;
 
     const supportHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -160,9 +195,11 @@ ${amount ? `Amount: ${amount}` : ''}`;
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>City:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${city || 'Not provided'}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Country:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${country || 'Not provided'}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Source:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${source || 'Not provided'}</td></tr>
-          ${licenseKey ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>License Key:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${licenseKey}</td></tr>` : ''}
+          ${licenseKey ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>License Key(s):</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace;">${licenseKey}</td></tr>` : ''}
+          ${customerNumber ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Customer Number:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #065F46;">${customerNumber}</td></tr>` : ''}
+          ${subscriptionType ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Subscription Type:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${subscriptionType}</td></tr>` : ''}
           ${paymentId ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Payment ID:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${paymentId}</td></tr>` : ''}
-          ${amount ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Amount:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${amount}</td></tr>` : ''}
+          ${amount ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Amount:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">$${amount}</td></tr>` : ''}
         </table>
       </div>`;
 
@@ -186,9 +223,27 @@ ${amount ? `Amount: ${amount}` : ''}`;
     console.log('toUser object:', JSON.stringify(toUser, null, 2));
     console.log('toSupport platform field:', platformDisplay);
     
+    const userPayload = {
+      personalizations: [{ to: [{ email: toUser.to }], subject: toUser.subject }],
+      from: { email: toUser.from },
+      content: [
+        { type: 'text/plain', value: toUser.text },
+        { type: 'text/html', value: toUser.html }
+      ]
+    };
+
+    const supportPayload = {
+      personalizations: [{ to: [{ email: toSupport.to }], subject: toSupport.subject }],
+      from: { email: toSupport.from },
+      content: [
+        { type: 'text/plain', value: toSupport.text },
+        { type: 'text/html', value: toSupport.html }
+      ]
+    };
+
     await Promise.all([
-      sgMail.send(toUser),
-      sgMail.send(toSupport)
+      sendEmail(apiKey, userPayload),
+      sendEmail(apiKey, supportPayload)
     ]);
     
     console.log('✅ Emails sent successfully');
@@ -291,5 +346,104 @@ function getWelcomeHtml(firstName, isMac, isWindows) {
       <li>Email: <a href="mailto:support@buildprax.com" style="color: #065F46;">support@buildprax.com</a></li>
     </ul>
     <p style="margin-top: 30px;">— The BUILDPRAX Team</p>
+  </div>`;
+}
+
+function getLicensePurchaseText(firstName, licenseKey, customerNumber) {
+  const name = firstName || 'there';
+  const keys = licenseKey.split(', '); // Handle multiple keys
+  const isMultiple = keys.length > 1;
+  
+  let keySection = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${isMultiple ? 'YOUR LICENSE KEYS:\n\n' : 'YOUR LICENSE KEY:\n'}
+${keys.map((key, i) => isMultiple ? `${i + 1}. ${key}` : key).join('\n')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+  return `Hello ${name},
+
+Thank you for your purchase of BUILDPRAX MEASURE PRO!
+
+${isMultiple ? 'Your license keys are ready. Please enter each one in the app to activate your subscriptions.' : 'Your license key is ready. Please enter it in the app to activate your subscription.'}
+
+${keySection}
+
+${customerNumber ? `\nCustomer Number: ${customerNumber}\n\nPlease save this customer number for future reference. You'll need it if you want to add additional licenses or renew your subscription.` : ''}
+
+How to Activate:
+1) Open BUILDPRAX MEASURE PRO
+2) Go to Help → Enter License Key
+3) Paste your license key${isMultiple ? 's (one at a time)' : ''} above
+4) Click "Activate License"
+
+${isMultiple ? 'Repeat steps 2-4 for each additional license key.\n' : ''}Your subscription${isMultiple ? 's are' : ' is'} now active! You can use all features immediately.
+
+IMPORTANT - Automatic Renewal:
+Your subscription will renew automatically at the end of each billing cycle until you cancel it. You will receive an email notification from PayPal before each renewal. To cancel your subscription, log in to your PayPal account and go to Subscriptions, or contact us at support@buildprax.com.
+
+Need Help?
+- Installation Guide: https://buildprax.com/installation-guide.html
+- Email Support: support@buildprax.com
+
+Thank you for supporting BUILDPRAX!
+
+— The BUILDPRAX Team`;
+}
+
+function getLicensePurchaseHtml(firstName, licenseKey, customerNumber) {
+  const name = firstName || 'there';
+  const keys = licenseKey.split(', '); // Handle multiple keys
+  const isMultiple = keys.length > 1;
+  
+  return `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #10b981;">Thank you for your purchase, ${name}!</h2>
+    <p>${isMultiple ? 'Your license keys are ready. Please enter each one in the app to activate your subscriptions.' : 'Your license key is ready. Please enter it in the app to activate your subscription.'}</p>
+    
+    <div style="background-color: #f0fdf4; border: 2px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+      <p style="margin: 0 0 10px 0; color: #065F46; font-weight: 600; font-size: 14px;">${isMultiple ? 'YOUR LICENSE KEYS:' : 'YOUR LICENSE KEY:'}</p>
+      ${keys.map((key, i) => `
+        ${isMultiple ? `<p style="margin: 8px 0; font-size: 12px; color: #065F46; font-weight: 600;">License ${i + 1}:</p>` : ''}
+        <p style="margin: ${isMultiple ? '0 0 16px 0' : '0'}; font-size: ${isMultiple ? '16px' : '18px'}; font-weight: 700; color: #065F46; letter-spacing: 1px; font-family: monospace; word-break: break-all;">
+          ${key}
+        </p>
+      `).join('')}
+    </div>
+    
+    ${customerNumber ? `
+    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; color: #92400e;">
+        <strong>Customer Number:</strong> ${customerNumber}<br/>
+        <small>Please save this for future reference. You'll need it if you want to add additional licenses or renew your subscription.</small>
+      </p>
+    </div>
+    ` : ''}
+    
+    <h3 style="color: #1e3a8a; margin-top: 30px;">How to Activate:</h3>
+    <ol style="line-height: 1.8;">
+      <li><strong>Open BUILDPRAX MEASURE PRO</strong></li>
+      <li><strong>Go to Help → Enter License Key</strong></li>
+      <li><strong>Paste your license key</strong> (shown above)</li>
+      <li><strong>Click "Activate License"</strong></li>
+    </ol>
+    
+    <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; color: #1e40af; font-weight: 600;">✅ Your subscription is now active! You can use all features immediately.</p>
+    </div>
+    
+    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; color: #92400e; font-weight: 600;">🔄 <strong>Automatic Renewal:</strong></p>
+      <p style="margin: 8px 0 0 0; color: #92400e; font-size: 14px;">
+        Your subscription will renew automatically at the end of each billing cycle until you cancel it. You will receive an email notification from PayPal before each renewal. To cancel, log in to your PayPal account and go to Subscriptions, or contact us at <a href="mailto:support@buildprax.com" style="color: #92400e;">support@buildprax.com</a>.
+      </p>
+    </div>
+    
+    <h3 style="color: #1e3a8a; margin-top: 30px;">Need Help?</h3>
+    <ul style="line-height: 1.8;">
+      <li><a href="https://buildprax.com/installation-guide.html" style="color: #065F46;">Installation Guide</a></li>
+      <li>Email: <a href="mailto:support@buildprax.com" style="color: #065F46;">support@buildprax.com</a></li>
+    </ul>
+    
+    <p style="margin-top: 30px;">Thank you for supporting BUILDPRAX!</p>
+    <p>— The BUILDPRAX Team</p>
   </div>`;
 }

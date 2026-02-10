@@ -292,7 +292,7 @@
     <section id="pricing" class="pricing">
         <div class="pricing-content">
             <h2>Simple, Transparent Pricing</h2>
-            <p style="text-align: center; color: #64748b; margin-bottom: 2rem;">All subscriptions activate automatically and immediately after purchase</p>
+            <p style="text-align: center; color: #64748b; margin-bottom: 2rem;">All subscriptions activate automatically and renew automatically until you cancel. Choose how many licenses you need when subscribing.</p>
             <div class="pricing-cards">
                 <div class="pricing-card">
                     <h3>Trial</h3>
@@ -313,7 +313,7 @@
                 <div class="pricing-card">
                     <h3>Monthly</h3>
                     <div class="price">$10<span>/month</span></div>
-                    <p>Billed monthly</p>
+                    <p>Billed monthly - Single license</p>
                     <ul>
                         <li>All measurement features</li>
                         <li>Unlimited projects</li>
@@ -328,7 +328,7 @@
                 <div class="pricing-card">
                     <h3>Quarterly</h3>
                     <div class="price">$30<span>/quarter</span></div>
-                    <p>Billed every 3 months</p>
+                    <p>Billed every 3 months - Single license</p>
                     <ul>
                         <li>All measurement features</li>
                         <li>Unlimited projects</li>
@@ -342,8 +342,8 @@
                 
                 <div class="pricing-card">
                     <h3>Half-Yearly</h3>
-                    <div class="price">$55<span>/6 months</span></div>
-                    <p>Billed every 6 months</p>
+                    <div class="price">$50<span>/6 months</span></div>
+                    <p>Billed every 6 months - Single license</p>
                     <ul>
                         <li>All measurement features</li>
                         <li>Unlimited projects</li>
@@ -359,6 +359,10 @@
                     <h3>Annually</h3>
                     <div class="price">$100<span>/year</span></div>
                     <p>Best value - Billed annually</p>
+                    <p style="font-size: 0.85rem; color: #10b981; font-weight: 600; margin: 0.5rem 0;">
+                        ✓ Multiple licenses available<br>
+                        ✓ Additional licenses: $90/year each
+                    </p>
                     <ul>
                         <li>All measurement features</li>
                         <li>Unlimited projects</li>
@@ -366,22 +370,11 @@
                         <li>Priority support</li>
                         <li>Future updates</li>
                         <li>Commercial use</li>
+                        <li>Multiple licenses option</li>
                     </ul>
                     <button onclick="showPaymentModal('yearly')" class="btn">Subscribe Annually</button>
                 </div>
                 
-                <div class="pricing-card">
-                    <h3>Additional Licenses</h3>
-                    <div class="price">$90<span>/license</span></div>
-                    <p>Per additional license (when purchasing more than one)</p>
-                    <ul>
-                        <li>All features included</li>
-                        <li>Same subscription term</li>
-                        <li>Centralized billing</li>
-                        <li>Team support</li>
-                    </ul>
-                    <a href="mailto:support@buildprax.com?subject=Additional License Inquiry&body=Hi, I'm interested in additional licenses for BUILDPRAX MEASURE PRO. Please send me more information." class="btn btn-secondary">Contact Sales</a>
-                </div>
             </div>
         </div>
     </section>
@@ -515,14 +508,25 @@
             <p>Choose your subscription plan. Activation happens automatically and immediately after purchase.</p>
             
             <div id="paymentForm">
+                <div id="licenseQuantitySection" style="margin-bottom: 20px; display: none;">
+                    <label for="licenseQuantity" style="display: block; margin-bottom: 8px; font-weight: 600; color: #0f172a;">Number of Licenses (Annual Subscriptions Only):</label>
+                    <input type="number" id="licenseQuantity" min="1" value="1" onchange="updateLicensePricing()" oninput="updateLicensePricing()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 16px;" placeholder="Enter number of licenses">
+                    <p id="licensePricingInfo" style="margin-top: 8px; font-size: 0.9rem; color: #065F46; font-weight: 600;">
+                        First license: $100.00/year | Additional licenses: $90.00/year each
+                    </p>
+                    <p style="margin-top: 4px; font-size: 0.8rem; color: #9ca3af; font-style: italic;">
+                        Note: Multiple licenses are only available for annual subscriptions. Monthly, quarterly, and half-yearly subscriptions are for single licenses only.
+                    </p>
+                </div>
+                
                 <p style="margin-bottom: 20px; color: #6b7280;">Secure payment processed by PayPal. Supports Visa, Mastercard, American Express, and PayPal accounts.</p>
                 <div id="paypal-button-container" style="margin-bottom: 20px;"></div>
                 <p style="font-size: 0.9rem; color: #6b7280; text-align: center; margin-top: 20px;">
-                    Your subscription will activate automatically and immediately after payment.
+                    Your subscription will renew automatically until you cancel. You can cancel anytime from your PayPal account.
                 </p>
             </div>
             
-                <p class="modal-note">After payment, your subscription will activate automatically and immediately. You'll receive your license key via email within 5 minutes.</p>
+            <p class="modal-note">After payment, your subscription will activate automatically and immediately. You'll receive your license key(s) via email within 5 minutes. Subscriptions renew automatically until cancelled.</p>
         </div>
     </div>
 
@@ -554,7 +558,7 @@
     <!-- End Meta Pixel Code -->
     
     <!-- PayPal SDK - Enable both PayPal and Card payments -->
-    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD&enable-funding=card&components=buttons,marks"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD&enable-funding=card&components=buttons,subscriptions,marks&vault=true"></script>
     <script src="script.js?v=5"></script>
 </body>
 </html>
