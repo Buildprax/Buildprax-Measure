@@ -600,16 +600,12 @@ function startDownload() {
 
 // Payment method selection no longer needed - PayPal handles both PayPal and Card payments
 
-// PayPal Subscription Initialization - Automatic Recurring Billing with License Quantity
+// PayPal Payment Initialization - Standard payment buttons
 function initializePayPalSubscription(subscriptionType = 'yearly', retryCount = 0) {
-    const maxRetries = 30; // 15 seconds total (30 * 500ms)
+    const maxRetries = 20; // 10 seconds total (20 * 500ms)
     
-    // Check if PayPal SDK is loaded and ready
-    const isPayPalReady = typeof paypal !== 'undefined' && 
-                          typeof paypal.Buttons !== 'undefined' && 
-                          (window.paypalSDKReady === true || typeof paypal.Buttons === 'function');
-    
-    if (!isPayPalReady) {
+    // Simple check if PayPal SDK is loaded
+    if (typeof paypal === 'undefined' || typeof paypal.Buttons === 'undefined') {
         if (retryCount >= maxRetries) {
             console.error('PayPal SDK failed to load after multiple attempts');
             const container = document.getElementById('paypal-button-container');
@@ -618,7 +614,6 @@ function initializePayPalSubscription(subscriptionType = 'yearly', retryCount = 
                     '<p style="margin: 0 0 10px 0; font-weight: 600;">Unable to load PayPal payment options</p>' +
                     '<p style="margin: 0 0 10px 0; font-size: 0.9rem;">Please refresh the page or contact <a href="mailto:support@buildprax.com" style="color: #dc2626;">support@buildprax.com</a></p>' +
                     '<p style="margin: 0; font-size: 0.8rem; color: #6b7280;">If this problem persists, please try a different browser or clear your browser cache.</p>' +
-                    '<p style="margin: 10px 0 0 0; font-size: 0.8rem; color: #6b7280;">Debug: paypal=' + (typeof paypal) + ', Buttons=' + (typeof paypal !== 'undefined' ? typeof paypal.Buttons : 'N/A') + '</p>' +
                     '</div>';
             }
             return;
@@ -639,7 +634,7 @@ function initializePayPalSubscription(subscriptionType = 'yearly', retryCount = 
         return;
     }
     
-    console.log('PayPal SDK loaded successfully, initializing subscription button...');
+    console.log('PayPal SDK loaded successfully, initializing payment button...');
     
     // Clear any existing buttons
     const container = document.getElementById('paypal-button-container');

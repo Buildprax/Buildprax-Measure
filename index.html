@@ -558,33 +558,7 @@
     <!-- End Meta Pixel Code -->
     
     <!-- PayPal SDK - Enable both PayPal and Card payments -->
-    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD&enable-funding=card&components=buttons,subscriptions,marks&vault=true" data-sdk-integration-source="button-factory"></script>
-    <script>
-        // Global flag to track PayPal SDK readiness
-        window.paypalSDKReady = false;
-        
-        // Wait for PayPal SDK to load
-        if (typeof paypal !== 'undefined') {
-            window.paypalSDKReady = true;
-        } else {
-            // Poll for PayPal SDK
-            var paypalCheckInterval = setInterval(function() {
-                if (typeof paypal !== 'undefined' && typeof paypal.Buttons !== 'undefined') {
-                    window.paypalSDKReady = true;
-                    clearInterval(paypalCheckInterval);
-                    console.log('PayPal SDK is ready');
-                }
-            }, 100);
-            
-            // Timeout after 10 seconds
-            setTimeout(function() {
-                clearInterval(paypalCheckInterval);
-                if (!window.paypalSDKReady) {
-                    console.error('PayPal SDK failed to load within 10 seconds');
-                }
-            }, 10000);
-        }
-    </script>
-    <script src="script.js?v=6"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD&enable-funding=card&components=buttons,subscriptions,marks&vault=true"></script>
+    <script src="script.js?v=7"></script>
 </body>
 </html>
