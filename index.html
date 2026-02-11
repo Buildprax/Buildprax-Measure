@@ -506,25 +506,49 @@
             <span class="close" onclick="closePaymentModal()">&times;</span>
             <h2>Subscribe to BUILDPRAX MEASURE PRO</h2>
             <p>Choose your subscription plan. Activation happens automatically and immediately after purchase.</p>
+            <p style="margin-bottom: 20px; color: #6b7280;">Secure payment processed by PayPal. Supports PayPal and eligible debit/credit cards.</p>
             
-            <div id="paymentForm">
-                <div id="licenseQuantitySection" style="margin-bottom: 20px; display: none;">
-                    <label for="licenseQuantity" style="display: block; margin-bottom: 8px; font-weight: 600; color: #0f172a;">Number of Licenses (Annual Subscriptions Only):</label>
-                    <input type="number" id="licenseQuantity" min="1" value="1" onchange="updateLicensePricing()" oninput="updateLicensePricing()" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 16px;" placeholder="Enter number of licenses">
-                    <p id="licensePricingInfo" style="margin-top: 8px; font-size: 0.9rem; color: #065F46; font-weight: 600;">
-                        First license: $100.00/year | Additional licenses: $90.00/year each
-                    </p>
-                    <p style="margin-top: 4px; font-size: 0.8rem; color: #9ca3af; font-style: italic;">
-                        Note: Multiple licenses are only available for annual subscriptions. Monthly, quarterly, and half-yearly subscriptions are for single licenses only.
-                    </p>
+            <div style="padding:14px;border:1px solid #ddd;border-radius:12px;margin-bottom:20px;">
+                <label style="display:block;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="bp_plan" value="monthly" checked>
+                    <strong>Monthly</strong> - $10/month
+                </label>
+
+                <label style="display:block;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="bp_plan" value="quarterly">
+                    <strong>Quarterly</strong> - $30/quarter
+                </label>
+
+                <label style="display:block;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="bp_plan" value="halfyearly">
+                    <strong>Half-Yearly</strong> - $55/6 months
+                </label>
+
+                <label style="display:block;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="bp_plan" value="yearly">
+                    <strong>Yearly</strong> - Multi-licence (first $100/year, additional $90/year each)
+                </label>
+
+                <div id="bp_yearly_qty_wrap" style="display:none;margin-top:10px;">
+                    <label style="display:block;margin-bottom:8px;">
+                        Number of licences (Yearly):
+                        <input id="bp_yearly_qty" type="number" min="1" value="1" style="width:90px;margin-left:8px;padding:8px;border:1px solid #d1d5db;border-radius:4px;">
+                    </label>
+                    <div style="font-size:12px;opacity:.8;margin-top:6px;color:#065F46;">
+                        Yearly pricing is handled by PayPal plan tiers: first licence $100/year, each additional licence $90/year. Quantity renews annually until cancelled.
+                    </div>
                 </div>
-                
-                <p style="margin-bottom: 20px; color: #6b7280;">Secure payment processed by PayPal. Supports Visa, Mastercard, American Express, and PayPal accounts.</p>
-                <div id="paypal-button-container" style="margin-bottom: 20px;"></div>
-                <p style="font-size: 0.9rem; color: #6b7280; text-align: center; margin-top: 20px;">
-                    Your subscription will renew automatically until you cancel. You can cancel anytime from your PayPal account.
-                </p>
             </div>
+
+            <div id="paypal-button-container" style="margin-top:14px;"></div>
+
+            <div id="bp_paypal_error" style="display:none;margin-top:12px;padding:12px;color:#b00020;background:#fef2f2;border:1px solid #dc2626;border-radius:4px;">
+                Unable to load PayPal payment options. Please refresh the page or contact support@buildprax.com
+            </div>
+            
+            <p style="font-size: 0.9rem; color: #6b7280; text-align: center; margin-top: 20px;">
+                Your subscription will renew automatically until you cancel. You can cancel anytime from your PayPal account.
+            </p>
             
             <p class="modal-note">After payment, your subscription will activate automatically and immediately. You'll receive your license key(s) via email within 5 minutes. Subscriptions renew automatically until cancelled.</p>
         </div>
@@ -557,8 +581,8 @@
     /></noscript>
     <!-- End Meta Pixel Code -->
     
-    <!-- PayPal SDK - Enable both PayPal and Card payments -->
-    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&currency=USD&enable-funding=card&components=buttons,subscriptions,marks&vault=true"></script>
-    <script src="script.js?v=7"></script>
+    <!-- IMPORTANT: Load PayPal SDK only once per page -->
+    <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&vault=true&intent=subscription"></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>

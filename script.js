@@ -130,13 +130,6 @@ function closeRegistrationModal() {
 function showPaymentModal(subscriptionType = 'yearly') {
     console.log('Opening payment modal for subscription type:', subscriptionType);
     
-    // Store selected subscription type
-    localStorage.setItem('selectedSubscriptionPlan', subscriptionType);
-    
-    // Show/hide license quantity section based on subscription type
-    // Only show for annual (yearly) subscriptions
-    const licenseQuantitySection = document.getElementById('licenseQuantitySection');
-    const licenseQuantity = document.getElementById('licenseQuantity');
     const paymentModal = document.getElementById('paymentModal');
     
     if (!paymentModal) {
@@ -145,71 +138,60 @@ function showPaymentModal(subscriptionType = 'yearly') {
         return;
     }
     
-    if (subscriptionType === 'yearly') {
-        // Show license quantity selector for annual subscriptions
-        if (licenseQuantitySection) {
-            licenseQuantitySection.style.display = 'block';
-        }
-        if (licenseQuantity) {
-            licenseQuantity.value = '1';
-        }
-        updateLicensePricing();
-    } else {
-        // Hide license quantity selector for non-annual subscriptions
-        if (licenseQuantitySection) {
-            licenseQuantitySection.style.display = 'none';
-        }
-        if (licenseQuantity) {
-            licenseQuantity.value = '1'; // Reset to 1 for non-annual
-        }
+    // Set the correct radio button based on subscriptionType
+    const planMap = {
+        'monthly': 'monthly',
+        'quarterly': 'quarterly',
+        'half-yearly': 'halfyearly',
+        'halfyearly': 'halfyearly',
+        'yearly': 'yearly'
+    };
+    
+    const planValue = planMap[subscriptionType] || 'yearly';
+    const radioButton = document.querySelector(`input[name="bp_plan"][value="${planValue}"]`);
+    if (radioButton) {
+        radioButton.checked = true;
+        syncYearlyUI();
     }
     
     // Show the modal
     paymentModal.style.display = 'block';
     console.log('Modal displayed, initializing PayPal...');
     
-    // Initialize PayPal subscription
-    initializePayPalSubscription(subscriptionType);
+    // Wait a moment for modal to render, then initialize PayPal
+    setTimeout(function() {
+        initializePayPalSubscription();
+    }, 100);
 }
 
-// Update license pricing display
-function updateLicensePricing() {
-    const licenseQuantity = document.getElementById('licenseQuantity');
-    const pricingInfo = document.getElementById('licensePricingInfo');
-    
-    if (!licenseQuantity || !pricingInfo) return;
-    
-    const quantity = parseInt(licenseQuantity.value) || 1;
-    
-    // Ensure minimum of 1 license
-    if (quantity < 1) {
-        licenseQuantity.value = '1';
-        return;
+// Sync yearly quantity UI visibility
+function syncYearlyUI() {
+    const isYearly = getSelectedPlanKey() === "yearly";
+    const yearlyQtyWrap = document.getElementById("bp_yearly_qty_wrap");
+    if (yearlyQtyWrap) {
+        yearlyQtyWrap.style.display = isYearly ? "block" : "none";
     }
-    
-    // Only show pricing for annual subscriptions
-    const subscriptionType = localStorage.getItem('selectedSubscriptionPlan') || 'yearly';
-    
-    if (subscriptionType !== 'yearly') {
-        // For non-annual, always 1 license
-        pricingInfo.textContent = 'Single license only for this subscription type.';
-        return;
+    // Reinitialize PayPal button when plan changes
+    if (typeof paypal !== 'undefined' && typeof paypal.Buttons === 'function') {
+        setTimeout(function() {
+            initializePayPalSubscription();
+        }, 100);
     }
-    
-    // Annual subscription pricing
-    const basePrice = 100.00; // First license
-    const additionalPrice = 90.00; // Per additional license per year
-    
-    if (quantity === 1) {
-        pricingInfo.textContent = `Total: $${basePrice.toFixed(2)}/year (1 license)`;
-    } else {
-        const additionalLicenses = quantity - 1;
-        const total = basePrice + (additionalLicenses * additionalPrice);
-        pricingInfo.textContent = `Total: $${total.toFixed(2)}/year (1 license at $${basePrice.toFixed(2)}/year + ${additionalLicenses} additional at $${additionalPrice.toFixed(2)}/year each)`;
-    }
-    
-    // Reinitialize PayPal button with updated quantity
-    initializePayPalSubscription(subscriptionType);
+}
+
+// Get selected plan key from radio buttons
+function getSelectedPlanKey() {
+    const selected = document.querySelector('input[name="bp_plan"]:checked');
+    return selected ? selected.value : 'yearly';
+}
+
+// Get yearly quantity
+function getYearlyQty() {
+    const qtyInput = document.getElementById("bp_yearly_qty");
+    if (!qtyInput) return "1";
+    const raw = parseInt(qtyInput.value, 10);
+    const qty = (!raw || raw < 1) ? 1 : raw;
+    return String(qty); // PayPal expects a string
 }
 
 function closePaymentModal() {
@@ -598,226 +580,191 @@ function startDownload() {
     localStorage.removeItem('selectedPlatform');
 }
 
-// Payment method selection no longer needed - PayPal handles both PayPal and Card payments
+// PayPal Subscription Initialization using pre-created plan IDs
+// Live plan IDs (BuildPrax Measure Pro)
+const PLAN_IDS = {
+    monthly:    "P-0MB65051SK4182325NGGFICY",
+    quarterly:  "P-2H790784GN5258612NGGFQLA",
+    halfyearly: "P-5Y9134689R8353907NGGFSDA",
+    yearly:     "P-46E47058JF829032LNGGFUJQ"  // tiered/quantity yearly plan
+};
 
-// PayPal Payment Initialization - Standard payment buttons
-function initializePayPalSubscription(subscriptionType = 'yearly', retryCount = 0) {
-    const maxRetries = 20; // 10 seconds total (20 * 500ms)
-    
-    // Simple check if PayPal SDK is loaded
-    if (typeof paypal === 'undefined' || typeof paypal.Buttons === 'undefined') {
-        if (retryCount >= maxRetries) {
-            console.error('PayPal SDK failed to load after multiple attempts');
-            const container = document.getElementById('paypal-button-container');
-            if (container) {
-                container.innerHTML = '<div style="color: #dc2626; padding: 20px; text-align: center; border: 1px solid #dc2626; border-radius: 4px; background: #fef2f2;">' +
-                    '<p style="margin: 0 0 10px 0; font-weight: 600;">Unable to load PayPal payment options</p>' +
-                    '<p style="margin: 0 0 10px 0; font-size: 0.9rem;">Please refresh the page or contact <a href="mailto:support@buildprax.com" style="color: #dc2626;">support@buildprax.com</a></p>' +
-                    '<p style="margin: 0; font-size: 0.8rem; color: #6b7280;">If this problem persists, please try a different browser or clear your browser cache.</p>' +
-                    '</div>';
-            }
-            return;
-        }
-        
-        if (retryCount === 0) {
-            console.log('PayPal SDK not loaded yet. Waiting...');
-            const container = document.getElementById('paypal-button-container');
-            if (container) {
-                container.innerHTML = '<p style="color: #6b7280; padding: 20px; text-align: center;">Loading payment options... Please wait.</p>';
-            }
-        }
-        
-        // Retry after a short delay
-        setTimeout(function() {
-            initializePayPalSubscription(subscriptionType, retryCount + 1);
-        }, 500);
-        return;
-    }
-    
-    console.log('PayPal SDK loaded successfully, initializing payment button...');
-    
-    // Clear any existing buttons
+// Initialize PayPal subscription buttons (called when modal opens or plan changes)
+function initializePayPalSubscription() {
+    // Clear existing buttons
     const container = document.getElementById('paypal-button-container');
+    const errorDiv = document.getElementById('bp_paypal_error');
+    
     if (!container) {
         console.error('PayPal button container not found');
         return;
     }
+    
     container.innerHTML = '';
-    
-    // Get license quantity (only for annual subscriptions)
-    let quantity = 1;
-    if (subscriptionType === 'yearly') {
-        const licenseQuantity = document.getElementById('licenseQuantity');
-        quantity = parseInt(licenseQuantity ? licenseQuantity.value : '1') || 1;
-        // Ensure minimum of 1
-        if (quantity < 1) quantity = 1;
-    } else {
-        // Non-annual subscriptions are always single license
-        quantity = 1;
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
     }
     
-    // Get billing cycle based on subscription type
-    const billingCycles = {
-        'monthly': { interval_unit: 'MONTH', interval_count: 1, basePrice: 10.00 },
-        'quarterly': { interval_unit: 'MONTH', interval_count: 3, basePrice: 30.00 },
-        'half-yearly': { interval_unit: 'MONTH', interval_count: 6, basePrice: 55.00 },
-        'halfyearly': { interval_unit: 'MONTH', interval_count: 6, basePrice: 55.00 },
-        'yearly': { interval_unit: 'YEAR', interval_count: 1, basePrice: 100.00 }
-    };
-    
-    const billingCycle = billingCycles[subscriptionType] || billingCycles['yearly'];
-    
-    // Calculate pricing
-    // For annual: first license $100, additional $90 each per year
-    // For non-annual: single license only at base price
-    const subscriptionBasePrice = billingCycle.basePrice;
-    let subscriptionTotalAmount;
-    
-    if (subscriptionType === 'yearly' && quantity > 1) {
-        // Annual with multiple licenses
-        const additionalPrice = 90.00; // Per additional license per year
-        const additionalLicenses = quantity - 1;
-        subscriptionTotalAmount = subscriptionBasePrice + (additionalLicenses * additionalPrice);
-    } else {
-        // Single license (all non-annual, or annual with 1 license)
-        subscriptionTotalAmount = subscriptionBasePrice;
-        quantity = 1; // Force to 1 for non-annual
+    // Check if PayPal SDK is loaded
+    if (typeof paypal === 'undefined' || typeof paypal.Buttons === 'undefined') {
+        console.error('PayPal SDK not loaded');
+        if (errorDiv) {
+            errorDiv.style.display = 'block';
+        }
+        return;
     }
     
-    const additionalLicenses = subscriptionType === 'yearly' ? Math.max(0, quantity - 1) : 0;
-    
-    console.log('Setting up subscription:', {
-        subscriptionType,
-        quantity,
-        basePrice: subscriptionBasePrice,
-        additionalLicenses,
-        totalAmount: subscriptionTotalAmount
-    });
-    
-    // Note: Quantity is read directly from input field in onApprove handlers
-    
-    // PayPal Payment Buttons - Standard payment flow
-    // Note: For automatic recurring subscriptions, plans need to be created in PayPal dashboard
-    // For now, using standard one-time payments. Subscriptions can be added later via PayPal dashboard plans.
     try {
-        console.log('Initializing PayPal standard payment buttons...');
-        
         paypal.Buttons({
-        style: {
-            layout: 'vertical',
-            color: 'gold',
-            shape: 'rect',
-            label: 'pay'
-        },
-        createOrder: function(data, actions) {
-            console.log('Creating PayPal order:', {
-                subscriptionType,
-                quantity,
-                totalAmount: subscriptionTotalAmount
-            });
-            
-            // Create a PayPal order for the subscription payment
-            return actions.order.create({
-                purchase_units: [{
-                    description: subscriptionType === 'yearly' && quantity > 1 
-                        ? `BUILDPRAX MEASURE PRO - Annual Subscription (${quantity} licenses)`
-                        : `BUILDPRAX MEASURE PRO - ${subscriptionType.charAt(0).toUpperCase() + subscriptionType.slice(1)} Subscription`,
-                    amount: {
-                        value: subscriptionTotalAmount.toFixed(2),
-                        currency_code: 'USD'
+            style: { 
+                shape: "pill", 
+                color: "gold", 
+                layout: "vertical", 
+                label: "subscribe" 
+            },
+
+            // Create the subscription for the selected plan
+            createSubscription: function (data, actions) {
+                const key = getSelectedPlanKey();
+                const planId = PLAN_IDS[key];
+
+                if (!planId) {
+                    console.error('Invalid plan key:', key);
+                    throw new Error('Invalid subscription plan selected');
+                }
+
+                const payload = { plan_id: planId };
+
+                // CRITICAL: yearly supports multiple licences. Quantity must be passed to PayPal.
+                // PayPal will then charge using the tier rules and renew annually at that quantity until cancelled.
+                if (key === "yearly") {
+                    payload.quantity = getYearlyQty();
+                    console.log('Creating yearly subscription with quantity:', payload.quantity);
+                }
+
+                console.log('Creating PayPal subscription:', payload);
+                return actions.subscription.create(payload);
+            },
+
+            onApprove: function (data, actions) {
+                console.log('Subscription approved:', data);
+                
+                // Get subscription details
+                return actions.subscription.get().then(function(details) {
+                    console.log('Subscription details:', details);
+                    
+                    // Get customer email from subscription details
+                    const subscriber = details.subscriber;
+                    const userEmail = subscriber && subscriber.email_address ? subscriber.email_address : '';
+                    
+                    if (!userEmail) {
+                        console.error('No email found in subscription details');
+                        showMessage('Subscription created but could not retrieve email. Please contact support@buildprax.com with your subscription ID: ' + data.subscriptionID, 'error');
+                        return;
                     }
-                }],
-                application_context: {
-                    brand_name: 'BUILDPRAX MEASURE PRO',
-                    landing_page: 'BILLING'
+                    
+                    // Get subscription type and quantity
+                    const key = getSelectedPlanKey();
+                    const subscriptionType = key === 'halfyearly' ? 'half-yearly' : key;
+                    
+                    // For annual subscriptions, get quantity from input
+                    // For non-annual, always 1 license
+                    let quantity = 1;
+                    if (key === 'yearly') {
+                        quantity = parseInt(getYearlyQty(), 10) || 1;
+                        if (quantity < 1) quantity = 1;
+                    }
+                    const additionalLicenses = key === 'yearly' ? Math.max(0, quantity - 1) : 0;
+                    
+                    // Generate and send license keys
+                    sendLicenseKey(userEmail, {
+                        id: data.subscriptionID,
+                        subscriptionID: data.subscriptionID,
+                        status: details.status || 'ACTIVE',
+                        type: 'subscription'
+                    }, subscriptionType, additionalLicenses, quantity);
+                    
+                    // Close modal
+                    closePaymentModal();
+                    
+                    // Show success message
+                    const renewalPeriod = subscriptionType === 'monthly' ? 'month' : subscriptionType === 'quarterly' ? '3 months' : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 'year';
+                    const licenseText = quantity > 1 ? `${quantity} licenses` : '1 license';
+                    showMessage(`Subscription successful! Your subscription is active. Your license key${quantity > 1 ? 's' : ''} have been sent to your email. Your subscription will renew automatically every ${renewalPeriod} until you cancel from your PayPal account.`, 'success');
+                }).catch(function(err) {
+                    console.error('Error getting subscription details:', err);
+                    // Still process the subscription even if details fetch fails
+                    const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
+                    const userEmail = customerData.email || '';
+                    if (userEmail) {
+                        const key = getSelectedPlanKey();
+                        const subscriptionType = key === 'halfyearly' ? 'half-yearly' : key;
+                        let quantity = 1;
+                        if (key === 'yearly') {
+                            quantity = parseInt(getYearlyQty(), 10) || 1;
+                            if (quantity < 1) quantity = 1;
+                        }
+                        const additionalLicenses = key === 'yearly' ? Math.max(0, quantity - 1) : 0;
+                        
+                        sendLicenseKey(userEmail, {
+                            id: data.subscriptionID,
+                            subscriptionID: data.subscriptionID,
+                            status: 'ACTIVE',
+                            type: 'subscription'
+                        }, subscriptionType, additionalLicenses, quantity);
+                        
+                        closePaymentModal();
+                        showMessage(`Subscription successful! Your license key${quantity > 1 ? 's' : ''} have been sent to your email.`, 'success');
+                    }
+                });
+            },
+
+            onError: function (err) {
+                console.error("PayPal Buttons error:", err);
+                if (errorDiv) {
+                    errorDiv.style.display = "block";
                 }
-            });
-        },
-        onApprove: function(data, actions) {
-            console.log('Payment approved:', data);
+                showMessage('Subscription setup failed. Please try again or contact support@buildprax.com', 'error');
+            },
             
-            // Capture the payment
-            return actions.order.capture().then(function(details) {
-                console.log('Payment captured:', details);
-                
-                // Get customer email from payment details
-                const payer = details.payer;
-                const userEmail = payer && payer.email_address ? payer.email_address : '';
-                
-                if (!userEmail) {
-                    console.error('No email found in payment details');
-                    showMessage('Payment successful but could not retrieve email. Please contact support@buildprax.com with your order ID: ' + data.orderID, 'error');
-                    return;
-                }
-                
-                // Get subscription type and quantity
-                const storedPlan = localStorage.getItem('selectedSubscriptionPlan');
-                const subscriptionType = storedPlan || 'yearly';
-                
-                // For annual subscriptions, get quantity from input
-                // For non-annual, always 1 license
-                let quantity = 1;
-                if (subscriptionType === 'yearly') {
-                    const licenseQuantity = document.getElementById('licenseQuantity');
-                    quantity = parseInt(licenseQuantity ? licenseQuantity.value : '1') || 1;
-                    if (quantity < 1) quantity = 1;
-                }
-                const additionalLicenses = subscriptionType === 'yearly' ? Math.max(0, quantity - 1) : 0;
-                
-                // Generate and send license keys
-                sendLicenseKey(userEmail, {
-                    id: data.orderID,
-                    orderID: data.orderID,
-                    status: details.status || 'COMPLETED',
-                    type: 'payment'
-                }, subscriptionType, additionalLicenses, quantity);
-                
-                // Close modal
-                closePaymentModal();
-                
-                // Show success message
-                const renewalPeriod = subscriptionType === 'monthly' ? 'month' : subscriptionType === 'quarterly' ? '3 months' : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 'year';
-                const licenseText = quantity > 1 ? `${quantity} licenses` : '1 license';
-                showMessage(`Payment successful! You've been charged $${subscriptionTotalAmount.toFixed(2)} for ${licenseText}. Your license key${quantity > 1 ? 's' : ''} have been sent to your email.`, 'success');
-            }).catch(function(err) {
-                console.error('Error capturing payment:', err);
-                showMessage('Payment processing failed. Please contact support@buildprax.com', 'error');
-            });
-        },
-        onError: function(err) {
-            console.error('PayPal payment error:', err);
-            let errorMessage = 'Payment failed. ';
-            if (err && err.message) {
-                errorMessage += err.message + ' ';
+            onCancel: function (data) {
+                console.log('Subscription cancelled:', data);
+                showMessage('Subscription setup was cancelled.', 'info');
             }
-            errorMessage += 'Please try again or contact support@buildprax.com';
-            showMessage(errorMessage, 'error');
-        },
-        onCancel: function(data) {
-            console.log('Payment cancelled:', data);
-            showMessage('Payment was cancelled.', 'info');
-        }
-    }).render('#paypal-button-container').then(function() {
-        console.log('PayPal button rendered successfully');
-    }).catch(function(err) {
-        console.error('Error rendering PayPal button:', err);
-        const container = document.getElementById('paypal-button-container');
-        if (container) {
-            container.innerHTML = '<div style="color: #dc2626; padding: 20px; text-align: center; border: 1px solid #dc2626; border-radius: 4px; background: #fef2f2;">' +
-                '<p style="margin: 0 0 10px 0; font-weight: 600;">Unable to load payment options</p>' +
-                '<p style="margin: 0; font-size: 0.9rem;">Please refresh the page or contact <a href="mailto:support@buildprax.com" style="color: #dc2626;">support@buildprax.com</a></p>' +
-                '<p style="margin: 10px 0 0 0; font-size: 0.8rem; color: #6b7280;">Error: ' + (err.message || 'Unknown error') + '</p>' +
-                '</div>';
-        }
-    });
-    } catch (error) {
-        console.error('Error initializing PayPal:', error);
-        const container = document.getElementById('paypal-button-container');
-        if (container) {
-            container.innerHTML = '<p style="color: #dc2626; padding: 20px; text-align: center;">Error loading payment options. Please refresh the page or contact support@buildprax.com</p>';
+        }).render("#paypal-button-container");
+    } catch (e) {
+        console.error('Error initializing PayPal:', e);
+        if (errorDiv) {
+            errorDiv.style.display = "block";
         }
     }
 }
+
+// Set up radio button and quantity input change listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for modal to be available
+    setTimeout(function() {
+        const planRadios = document.querySelectorAll('input[name="bp_plan"]');
+        if (planRadios.length > 0) {
+            planRadios.forEach(r => r.addEventListener("change", syncYearlyUI));
+            console.log('PayPal plan radio buttons initialized');
+        }
+        
+        // Listen for yearly quantity changes
+        const yearlyQtyInput = document.getElementById('bp_yearly_qty');
+        if (yearlyQtyInput) {
+            yearlyQtyInput.addEventListener('change', function() {
+                // Reinitialize PayPal when quantity changes (only if yearly is selected)
+                if (getSelectedPlanKey() === 'yearly') {
+                    setTimeout(function() {
+                        initializePayPalSubscription();
+                    }, 100);
+                }
+            });
+            console.log('Yearly quantity input listener initialized');
+        }
+    }, 500);
+});
 
 // Card payment is now handled by PayPal SDK - no separate function needed
 
