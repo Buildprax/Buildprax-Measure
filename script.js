@@ -852,27 +852,39 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
 
 // Get or create customer number for an email
 // IMPORTANT: Customer numbers are ONLY assigned when a subscription is purchased, NOT for trial downloads
-// This function is only called from sendLicenseKey() when a payment is completed
+// Customer numbers are FIXED FOR LIFE - same email always gets same number
+// First customer: cathalcorbett@gmail.com = BMP000101
 function getCustomerNumber(email) {
+    if (!email) return '';
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // CRITICAL: First customer - Cathal Corbett - Fixed number BMP000101
+    if (normalizedEmail === 'cathalcorbett@gmail.com') {
+        console.log('Using fixed customer number for Cathal Corbett: BMP000101');
+        return 'BMP000101';
+    }
+    
     // Check if customer already has a number (from previous subscription)
     const customerNumbers = JSON.parse(localStorage.getItem('customerNumbers') || '{}');
-    if (customerNumbers[email]) {
-        console.log('Using existing customer number for:', email, customerNumbers[email]);
-        return customerNumbers[email];
+    if (customerNumbers[normalizedEmail]) {
+        console.log('Using existing customer number for:', normalizedEmail, customerNumbers[normalizedEmail]);
+        return customerNumbers[normalizedEmail];
     }
     
     // Generate new customer number (only called when subscription is purchased)
+    // Start from 102 (101 is reserved for Cathal)
     const existingNumbers = Object.values(customerNumbers);
-    let num = 101;
+    let num = 102;
     while (existingNumbers.includes(`BMP${String(num).padStart(5, '0')}`)) {
         num++;
-        if (num > 99999) num = 101; // Reset if we hit the limit
+        if (num > 99999) num = 102; // Reset if we hit the limit
     }
     
     const customerNumber = `BMP${String(num).padStart(5, '0')}`;
-    customerNumbers[email] = customerNumber;
+    customerNumbers[normalizedEmail] = customerNumber;
     localStorage.setItem('customerNumbers', JSON.stringify(customerNumbers));
-    console.log('Generated new customer number for subscription purchase:', email, customerNumber);
+    console.log('Generated new customer number for subscription purchase:', normalizedEmail, customerNumber);
     return customerNumber;
 }
 
