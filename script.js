@@ -126,9 +126,86 @@ function closeRegistrationModal() {
     document.getElementById('registrationModal').style.display = 'none';
 }
 
+const PACKAGE_PRICES = {
+    quartz: { monthly: 10, quarterly: 30, halfyearly: 55, yearly: 100, yearlyAdditional: 90 },
+    emerald: { monthly: 18, quarterly: 54, halfyearly: 99, yearly: 180, yearlyAdditional: 162 },
+    sapphire: { monthly: 21, quarterly: 63, halfyearly: 115, yearly: 210, yearlyAdditional: 189 },
+    diamond: { monthly: 29, quarterly: 87, halfyearly: 159, yearly: 290, yearlyAdditional: 261 },
+};
+
+const PACKAGE_LABELS = {
+    quartz: 'Quartz',
+    emerald: 'Emerald',
+    sapphire: 'Sapphire',
+    diamond: 'Diamond',
+};
+
+// Live plan IDs (BuildPrax packages x cycles)
+const PLAN_IDS = {
+    quartz: {
+        monthly: 'P-3J073398P3559135BNHJ45UI',
+        quarterly: 'P-30K921908L429603BNHJ5ACY',
+        halfyearly: 'P-94J443381C949051BNHJ5BMQ',
+        yearly: 'P-4MN478353Y062360ANHJ5DBQ',
+    },
+    emerald: {
+        monthly: 'P-1S501420WG286542LNHJ5G3A',
+        quarterly: 'P-926425524K585832GNHJ5HUI',
+        halfyearly: 'P-8HH73921XA896824NNHJ5I2Y',
+        yearly: 'P-3R8372600K076935FNHJ5KNA',
+    },
+    sapphire: {
+        monthly: 'P-8H696013XT563322HNHJ5MTI',
+        quarterly: 'P-8RR61939JV344163BNHJ5O2A',
+        halfyearly: 'P-62437076NY240873UNHJ5REY',
+        yearly: 'P-1RB20550BH271030CNHJ5TEQ',
+    },
+    diamond: {
+        monthly: 'P-14M01620TM4779401NHJ5UXY',
+        quarterly: 'P-7MN435228A979822VNHJ5VRQ',
+        halfyearly: 'P-45K182315A961464XNHJ5WMY',
+        yearly: 'P-93K3717766896443TNHJ5XPY',
+    },
+};
+
+let selectedPackageCode = 'quartz';
+
+function normalizeCycleKey(v) {
+    if (!v) return 'monthly';
+    if (v === 'half-yearly' || v === 'half_yearly') return 'halfyearly';
+    return v;
+}
+
+function updatePlanOptionLabels(packageCode) {
+    const code = PACKAGE_PRICES[packageCode] ? packageCode : 'quartz';
+    const prices = PACKAGE_PRICES[code];
+    const label = PACKAGE_LABELS[code] || 'Quartz';
+    const selectedPackageEl = document.getElementById('bp-selected-package');
+    if (selectedPackageEl) selectedPackageEl.textContent = `Selected package: ${label}`;
+    const monthlyEl = document.getElementById('bp-price-monthly');
+    const quarterlyEl = document.getElementById('bp-price-quarterly');
+    const halfEl = document.getElementById('bp-price-halfyearly');
+    const yearlyEl = document.getElementById('bp-price-yearly');
+    const yearlyHelpEl = document.getElementById('bp-yearly-help');
+    if (monthlyEl) monthlyEl.textContent = `$${prices.monthly}/month`;
+    if (quarterlyEl) quarterlyEl.textContent = `$${prices.quarterly}/quarter`;
+    if (halfEl) halfEl.textContent = `$${prices.halfyearly}/6 months`;
+    if (yearlyEl) yearlyEl.textContent = `Multi-licence (first $${prices.yearly}/year, additional $${prices.yearlyAdditional}/year each)`;
+    if (yearlyHelpEl) {
+        yearlyHelpEl.textContent = `Yearly pricing is handled by PayPal plan tiers: first licence $${prices.yearly}/year, each additional licence $${prices.yearlyAdditional}/year. Quantity renews annually until cancelled.`;
+    }
+}
+
 // Payment Modal Functions
-function showPaymentModal(subscriptionType = 'yearly') {
-    console.log('Opening payment modal for subscription type:', subscriptionType);
+function showPaymentModal(packageCode = 'quartz', subscriptionType = 'monthly') {
+    // Backward compatibility: showPaymentModal('monthly') from old buttons
+    if (PACKAGE_PRICES[packageCode] == null) {
+        subscriptionType = packageCode;
+        packageCode = selectedPackageCode || 'quartz';
+    }
+    const cycle = normalizeCycleKey(subscriptionType);
+    selectedPackageCode = PACKAGE_PRICES[packageCode] ? packageCode : 'quartz';
+    console.log('Opening payment modal for package/cycle:', selectedPackageCode, cycle);
     
     const paymentModal = document.getElementById('paymentModal');
     
@@ -139,16 +216,9 @@ function showPaymentModal(subscriptionType = 'yearly') {
     }
     
     // Set the correct radio button based on subscriptionType
-    const planMap = {
-        'monthly': 'monthly',
-        'quarterly': 'quarterly',
-        'half-yearly': 'halfyearly',
-        'halfyearly': 'halfyearly',
-        'yearly': 'yearly'
-    };
-    
-    const planValue = planMap[subscriptionType] || 'yearly';
-    const radioButton = document.querySelector(`input[name="bp_plan"][value="${planValue}"]`);
+    updatePlanOptionLabels(selectedPackageCode);
+
+    const radioButton = document.querySelector(`input[name="bp_plan"][value="${cycle}"]`);
     if (radioButton) {
         radioButton.checked = true;
         syncYearlyUI();
@@ -182,7 +252,13 @@ function syncYearlyUI() {
 // Get selected plan key from radio buttons
 function getSelectedPlanKey() {
     const selected = document.querySelector('input[name="bp_plan"]:checked');
-    return selected ? selected.value : 'yearly';
+    return selected ? normalizeCycleKey(selected.value) : 'monthly';
+}
+
+function getSelectedPlanId() {
+    const cycle = getSelectedPlanKey();
+    const packagePlans = PLAN_IDS[selectedPackageCode] || PLAN_IDS.quartz;
+    return packagePlans[cycle] || null;
 }
 
 // Get yearly quantity
@@ -580,15 +656,6 @@ function startDownload() {
     localStorage.removeItem('selectedPlatform');
 }
 
-// PayPal Subscription Initialization using pre-created plan IDs
-// Live plan IDs (BuildPrax Measure Pro)
-const PLAN_IDS = {
-    monthly:    "P-0MB65051SK4182325NGGFICY",
-    quarterly:  "P-2H790784GN5258612NGGFQLA",
-    halfyearly: "P-5Y9134689R8353907NGGFSDA",
-    yearly:     "P-46E47058JF829032LNGGFUJQ"  // tiered/quantity yearly plan
-};
-
 // Initialize PayPal subscription buttons (called when modal opens or plan changes)
 function initializePayPalSubscription() {
     // Clear existing buttons
@@ -626,10 +693,10 @@ function initializePayPalSubscription() {
             // Create the subscription for the selected plan
             createSubscription: function (data, actions) {
                 const key = getSelectedPlanKey();
-                const planId = PLAN_IDS[key];
+                const planId = getSelectedPlanId();
 
                 if (!planId) {
-                    console.error('Invalid plan key:', key);
+                    console.error('Invalid package/cycle:', selectedPackageCode, key);
                     throw new Error('Invalid subscription plan selected');
                 }
 
@@ -666,6 +733,7 @@ function initializePayPalSubscription() {
                     // Get subscription type and quantity
                     const key = getSelectedPlanKey();
                     const subscriptionType = key === 'halfyearly' ? 'half-yearly' : key;
+                    const packageCode = selectedPackageCode;
                     
                     // For annual subscriptions, get quantity from input
                     // For non-annual, always 1 license
@@ -682,7 +750,7 @@ function initializePayPalSubscription() {
                         subscriptionID: data.subscriptionID,
                         status: details.status || 'ACTIVE',
                         type: 'subscription'
-                    }, subscriptionType, additionalLicenses, quantity);
+                    }, subscriptionType, additionalLicenses, quantity, packageCode);
                     
                     // Close modal
                     closePaymentModal();
@@ -699,6 +767,7 @@ function initializePayPalSubscription() {
                     if (userEmail) {
                         const key = getSelectedPlanKey();
                         const subscriptionType = key === 'halfyearly' ? 'half-yearly' : key;
+                        const packageCode = selectedPackageCode;
                         let quantity = 1;
                         if (key === 'yearly') {
                             quantity = parseInt(getYearlyQty(), 10) || 1;
@@ -711,7 +780,7 @@ function initializePayPalSubscription() {
                             subscriptionID: data.subscriptionID,
                             status: 'ACTIVE',
                             type: 'subscription'
-                        }, subscriptionType, additionalLicenses, quantity);
+                        }, subscriptionType, additionalLicenses, quantity, packageCode);
                         
                         closePaymentModal();
                         showMessage(`Subscription successful! Your license key${quantity > 1 ? 's' : ''} have been sent to your email.`, 'success');
@@ -769,7 +838,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Card payment is now handled by PayPal SDK - no separate function needed
 
 // Send License Key Function - Updated with customer number, subscription type, and multiple licenses
-function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0, totalLicenses = 1) {
+function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0, totalLicenses = 1, packageCode = 'quartz') {
     // Get or create customer number ONLY when subscription is purchased
     // Customer numbers are NOT assigned for trial downloads, only for paid subscriptions
     const customerNumber = getCustomerNumber(email);
@@ -787,8 +856,16 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
     
     // Store license keys
     const licenses = JSON.parse(localStorage.getItem('licenses') || '[]');
-    const basePrice = subscriptionType === 'monthly' ? 10.00 : subscriptionType === 'quarterly' ? 30.00 : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? 55.00 : 100.00;
-    const additionalPrice = 90.00;
+    const pkg = PACKAGE_PRICES[packageCode] || PACKAGE_PRICES.quartz;
+    const normalizedSubType = normalizeCycleKey(subscriptionType);
+    const basePrice = normalizedSubType === 'monthly'
+        ? Number(pkg.monthly)
+        : normalizedSubType === 'quarterly'
+            ? Number(pkg.quarterly)
+            : normalizedSubType === 'halfyearly'
+                ? Number(pkg.halfyearly)
+                : Number(pkg.yearly);
+    const additionalPrice = Number(pkg.yearlyAdditional);
     const totalAmount = basePrice + (additionalLicenses * additionalPrice);
     
     licenseKeys.forEach((key, index) => {
@@ -797,6 +874,7 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
             licenseKey: key,
             customerNumber: customerNumber,
             subscriptionType: subscriptionType,
+            packageCode: packageCode,
             licenseNumber: index + 1,
             totalLicenses: licenseKeys.length,
             timestamp: new Date().toISOString(),
@@ -828,6 +906,7 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
             licenseKey: licenseKeys.join(', '), // Send all keys if multiple
             customerNumber: customerNumber,
             subscriptionType: subscriptionType,
+            packageCode: packageCode,
             totalLicenses: totalLicenses,
             paymentId: paymentDetails.id || paymentDetails.subscriptionID || 'manual',
             subscriptionID: paymentDetails.subscriptionID || null,
