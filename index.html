@@ -45,7 +45,6 @@
             <div class="hero-buttons">
                 <button onclick="scrollToDownload()" class="btn btn-large">Start 14-Day Trial</button>
                 <a href="#advantages" class="btn btn-secondary btn-large">Why Choose Us</a>
-                <a href="https://calendly.com/buildprax-support/30min" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-large">Book Live Session</a>
             </div>
             <p style="margin-top: 1rem; color: #9ca3af; font-size: 0.9rem;">
                 🪟 Available on Microsoft Store for Windows | 🍎 Direct download for macOS | ⚡ Lightweight & Fast
@@ -328,7 +327,8 @@
     <section id="pricing" class="pricing">
         <div class="pricing-content">
             <h2>Subscription Packages and Pricing</h2>
-            <p style="text-align: center; color: #64748b; margin-bottom: 2rem;">Choose the package and payment cycle that fits your business. Additional yearly licenses are available for scale-up teams.</p>
+            <p style="text-align: center; color: #64748b; margin-bottom: 1rem;">Choose the package and payment cycle that fits your business. Additional yearly licenses are available for scale-up teams.</p>
+            <p style="text-align: center; color: #475569; margin-bottom: 2rem;">Purchase directly online. Subscription activation and license key delivery are automatic.</p>
             <div style="overflow-x:auto; background:#fff; border-radius:12px; box-shadow:0 6px 24px rgba(15,23,42,0.08);">
                 <table style="width:100%; border-collapse:collapse; min-width:760px;">
                     <thead>
@@ -354,7 +354,11 @@
                 </table>
             </div>
             <div style="text-align:center; margin-top: 1.5rem;">
-                <a href="https://calendly.com/buildprax-support/30min" target="_blank" rel="noopener noreferrer" class="btn">Book a live session to choose your package</a>
+                <button onclick="showPaymentModal('monthly')" class="btn" style="margin-right: 10px;">Purchase Subscription Now</button>
+                <button onclick="showRegistrationModal()" class="btn btn-secondary">Start 14-Day Trial</button>
+                <p style="font-size: 0.85rem; color: #6b7280; margin-top: 0.8rem;">
+                    During checkout you will create/sign in to your account. After successful payment, your subscription activates automatically and your license key is sent by email.
+                </p>
             </div>
         </div>
     </section>
@@ -370,9 +374,9 @@
                     <a href="mailto:support@buildprax.com" class="btn btn-secondary">support@buildprax.com</a>
                 </div>
                 <div class="support-card">
-                    <h3>📅 Book a Live Session</h3>
-                    <p>Book a live one-on-one session with Charle for setup, training, and support.</p>
-                    <a href="https://calendly.com/buildprax-support/30min" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Book via Calendly</a>
+                    <h3>🔐 Account &amp; Subscription Support</h3>
+                    <p>Help with account sign-in, subscription activation, and license key delivery.</p>
+                    <a href="mailto:support@buildprax.com?subject=Account%20and%20Subscription%20Support" class="btn btn-secondary">Get Support</a>
                 </div>
                 <div class="support-card">
                     <h3>🛠 Installation Help</h3>
