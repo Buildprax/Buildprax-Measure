@@ -81,16 +81,19 @@ function showRegistrationModal() {
         const selectedPlatform = localStorage.getItem('selectedPlatform');
         const isWindows = selectedPlatform === 'windows';
         
-        // Update modal title/message based on platform
+        // Update modal title/message/button based on platform
         const modalTitle = modal.querySelector('h2');
         const modalDescription = modal.querySelector('p');
+        const submitButton = modal.querySelector('button[type="submit"]');
         if (modalTitle && modalDescription) {
             if (isWindows) {
                 modalTitle.textContent = 'Download BUILDPRAX MEASURE PRO for Windows';
                 modalDescription.textContent = 'Complete the form below to get your download link. You\'ll be redirected to the Microsoft Store after submission.';
+                if (submitButton) submitButton.textContent = 'Open Microsoft Store';
             } else {
                 modalTitle.textContent = 'Download BUILDPRAX MEASURE PRO for macOS';
                 modalDescription.textContent = 'Complete the form below to start your 14-day free trial. You\'ll receive the download link immediately.';
+                if (submitButton) submitButton.textContent = 'Start Download';
             }
         }
         
