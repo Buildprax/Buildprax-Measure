@@ -622,12 +622,12 @@ function startDownload() {
     
     if (platform === 'mac') {
         // Updated to latest notarized/stapled release
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/Buildprax%20Measure%20Pro-0.1.0-loginfix-20260406-arm64.dmg';
-        filename = 'Buildprax Measure Pro-0.1.0-loginfix-20260406-arm64.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.10.0.dmg';
+        filename = 'BuildpraxMeasurePro_1.0.10.0.dmg';
     } else {
         // Default to Mac
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/Buildprax%20Measure%20Pro-0.1.0-loginfix-20260406-arm64.dmg';
-        filename = 'Buildprax Measure Pro-0.1.0-loginfix-20260406-arm64.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.10.0.dmg';
+        filename = 'BuildpraxMeasurePro_1.0.10.0.dmg';
     }
     
     console.log('Download link:', downloadLink);
