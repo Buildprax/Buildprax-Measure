@@ -1,0 +1,76 @@
+{
+  "name": "buildprax-global",
+  "private": true,
+  "version": "1.0.10",
+  "description": "Buildprax Global: Measurement Viewer + Bills of Quantities",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dist": "npm run build && electron-builder --mac --publish=never",
+    "dist:notarize": "npm run build && cross-env APPLE_KEYCHAIN_PROFILE=buildprax-notary electron-builder --mac --publish=never"
+  },
+  "dependencies": {
+    "@mlightcad/libredwg-web": "^0.3.0",
+    "canvas": "^3.2.0",
+    "exceljs": "^4.4.0",
+    "konva": "^9.3.12",
+    "nanoid": "^3.3.11",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "3.11.174",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-konva": "^18.2.10",
+    "react-pdf": "^7.7.1",
+    "sharp": "^0.34.4",
+    "xlsx": "^0.18.5",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@electron/notarize": "^2.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^38.4.0",
+    "electron-builder": "^26.0.12",
+    "vite": "^5.4.8",
+    "wait-on": "^9.0.1"
+  },
+  "author": {
+    "name": "Buildprax",
+    "email": "support@buildprax.com"
+  },
+  "build": {
+    "appId": "com.buildprax.global",
+    "productName": "Buildprax Measure Pro",
+    "artifactName": "BuildpraxMeasurePro_1.0.10.0.${ext}",
+    "afterAllArtifactBuild": "./electron/notarize-dmg.cjs",
+    "directories": {
+      "output": "release"
+    },
+    "dmg": {
+      "sign": true,
+      "writeUpdateInfo": false
+    },
+    "icon": "build/icon.png",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*",
+      "build/icon.png"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "dir"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "notarize": true
+    }
+  }
+}
