@@ -1154,13 +1154,16 @@ function initializeMembersArea() {
     const modeLoginBtn = document.getElementById('membersModeLoginBtn');
     const modeSignupBtn = document.getElementById('membersModeSignupBtn');
     const nameWrap = document.getElementById('membersNameWrap');
+    const passwordConfirmWrap = document.getElementById('membersPasswordConfirmWrap');
     const submitBtn = document.getElementById('membersSubmitBtn');
+    const forgotPasswordBtn = document.getElementById('membersForgotPasswordBtn');
     if (!loginForm) return;
     let membersMode = 'login';
     const inlineMessageEl = document.getElementById('membersInlineMessage');
 
     const syncMembersModeUi = () => {
         if (nameWrap) nameWrap.style.display = membersMode === 'signup' ? 'block' : 'none';
+        if (passwordConfirmWrap) passwordConfirmWrap.style.display = membersMode === 'signup' ? 'block' : 'none';
         if (submitBtn) submitBtn.textContent = membersMode === 'signup' ? 'Create Account' : 'Sign In';
         if (modeLoginBtn) modeLoginBtn.style.opacity = membersMode === 'login' ? '1' : '0.75';
         if (modeSignupBtn) modeSignupBtn.style.opacity = membersMode === 'signup' ? '1' : '0.75';
@@ -1192,14 +1195,18 @@ function initializeMembersArea() {
         renderMembersStatus(null);
     });
 
+    processMembersUrlActions(showInlineMessage).catch(() => {});
+
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         const emailInput = document.getElementById('membersEmail');
         const nameInput = document.getElementById('membersName');
         const passwordInput = document.getElementById('membersPassword');
+        const passwordConfirmInput = document.getElementById('membersPasswordConfirm');
         const email = (emailInput?.value || '').trim().toLowerCase();
         const name = (nameInput?.value || '').trim();
         const password = passwordInput?.value || '';
+        const passwordConfirm = passwordConfirmInput?.value || '';
         if (!email || !password) {
             showInlineMessage('Enter both email and password.');
             showMessage('Enter both email and password.', 'error');
@@ -1215,14 +1222,25 @@ function initializeMembersArea() {
             showMessage('Enter a valid email address.', 'error');
             return;
         }
+        if (membersMode === 'signup' && password !== passwordConfirm) {
+            showInlineMessage('Passwords do not match.');
+            showMessage('Passwords do not match.', 'error');
+            return;
+        }
         clearInlineMessage();
         try {
             if (membersMode === 'signup') {
-                await authApiRequest('/auth/signup', {
+                const signupPayload = await authApiRequest('/auth/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password, name })
                 });
+                showInlineMessage('Account created. Check your email to verify your account before signing in.', 'success');
+                showMessage('Account created. Check your email to verify your account before signing in.', 'success');
+                if (passwordInput) passwordInput.value = '';
+                if (passwordConfirmInput) passwordConfirmInput.value = '';
+                if (nameInput) nameInput.value = '';
+                if (signupPayload?.requiresEmailVerification) return;
             }
             const payload = await membersLogin(email, password);
             saveMembersState({
@@ -1247,11 +1265,33 @@ function initializeMembersArea() {
             showMessage(membersMode === 'signup' ? 'Account created and signed in.' : 'Members login successful.', 'success');
             if (passwordInput) passwordInput.value = '';
             if (membersMode === 'signup' && nameInput) nameInput.value = '';
+            if (passwordConfirmInput) passwordConfirmInput.value = '';
         } catch (error) {
             showInlineMessage(error.message || 'Members login failed.');
             showMessage(error.message || 'Members login failed.', 'error');
         }
     });
+
+    if (forgotPasswordBtn) {
+        forgotPasswordBtn.addEventListener('click', async function() {
+            const emailInput = document.getElementById('membersEmail');
+            const email = (emailInput?.value || '').trim().toLowerCase();
+            if (!email || !email.includes('@')) {
+                showInlineMessage('Enter your email first, then click Forgot Password.');
+                return;
+            }
+            try {
+                await authApiRequest('/auth/request-password-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                showInlineMessage('If this email exists, a reset link has been sent.', 'success');
+            } catch (error) {
+                showInlineMessage(error.message || 'Could not start password reset.');
+            }
+        });
+    }
 
     if (refreshBtn) {
         refreshBtn.addEventListener('click', async function() {
@@ -1270,6 +1310,47 @@ function initializeMembersArea() {
             renderMembersStatus(null);
             showMessage('Signed out from members area.', 'success');
         });
+    }
+}
+
+async function processMembersUrlActions(showInlineMessage) {
+    const params = new URLSearchParams(window.location.search || '');
+    const verifyToken = params.get('verify');
+    const resetToken = params.get('reset');
+    if (verifyToken) {
+        try {
+            await authApiRequest('/auth/verify-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: verifyToken })
+            });
+            showInlineMessage('Email verified successfully. You can now sign in.', 'success');
+        } catch (error) {
+            showInlineMessage(error.message || 'Email verification failed.');
+        }
+        window.history.replaceState({}, '', `${window.location.pathname}#members`);
+        return;
+    }
+    if (resetToken) {
+        const newPassword = window.prompt('Enter your new password (minimum 6 characters):');
+        if (!newPassword) return;
+        const confirmPassword = window.prompt('Confirm your new password:');
+        if (!confirmPassword) return;
+        if (newPassword !== confirmPassword) {
+            showInlineMessage('Passwords do not match.');
+            return;
+        }
+        try {
+            await authApiRequest('/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: resetToken, newPassword })
+            });
+            showInlineMessage('Password reset successful. Please sign in.', 'success');
+        } catch (error) {
+            showInlineMessage(error.message || 'Password reset failed.');
+        }
+        window.history.replaceState({}, '', `${window.location.pathname}#members`);
     }
 }
 
