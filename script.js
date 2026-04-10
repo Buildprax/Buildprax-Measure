@@ -1067,7 +1067,8 @@ async function authApiFetch(pathSuffix, options = {}) {
     for (const base of AUTH_API_BASE_CANDIDATES) {
         try {
             const response = await fetch(`${base}${pathSuffix}`, options);
-            const canFallback = base === '/api/auth' && [404, 500, 502, 503, 504].includes(response.status);
+            // If App Platform proxy returns any error, retry direct function URL.
+            const canFallback = base === '/api/auth' && response.status >= 400;
             if (!canFallback) return response;
         } catch (error) {
             lastError = error;
@@ -1212,6 +1213,16 @@ function initializeMembersArea() {
         if (!email || !password) {
             showInlineMessage('Enter both email and password.');
             showMessage('Enter both email and password.', 'error');
+            return;
+        }
+        if (membersMode === 'signup' && password.length < 6) {
+            showInlineMessage('Password must be at least 6 characters.');
+            showMessage('Password must be at least 6 characters.', 'error');
+            return;
+        }
+        if (membersMode === 'signup' && !email.includes('@')) {
+            showInlineMessage('Enter a valid email address.');
+            showMessage('Enter a valid email address.', 'error');
             return;
         }
         clearInlineMessage();
