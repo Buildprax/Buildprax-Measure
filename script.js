@@ -3,6 +3,7 @@
 // you can switch this to '/api/send-email'.
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
 const AUTH_API_BASE = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
+const AUTH_API_BASE_CANDIDATES = ['/api/auth', AUTH_API_BASE];
 
 function detectPlatformFromBrowser() {
     const userAgent = navigator.userAgent || '';
@@ -1061,13 +1062,27 @@ function renderMembersStatus(data) {
     `;
 }
 
+async function authApiFetch(pathSuffix, options = {}) {
+    let lastError = null;
+    for (const base of AUTH_API_BASE_CANDIDATES) {
+        try {
+            const response = await fetch(`${base}${pathSuffix}`, options);
+            const canFallback = base === '/api/auth' && [404, 500, 502, 503, 504].includes(response.status);
+            if (!canFallback) return response;
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError || new Error('Failed to reach authentication service');
+}
+
 async function membersLogin(email, password) {
-    const response = await fetch(`${AUTH_API_BASE}/auth/login`, {
+    const response = await authApiFetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
     });
-    const payload = await response.json();
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.ok) {
         throw new Error(payload.message || 'Login failed');
     }
@@ -1075,13 +1090,13 @@ async function membersLogin(email, password) {
 }
 
 async function fetchMembersEntitlement(accessToken) {
-    const response = await fetch(`${AUTH_API_BASE}/me/entitlement`, {
+    const response = await authApiFetch('/me/entitlement', {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${accessToken}`
         }
     });
-    const payload = await response.json();
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.ok) {
         throw new Error(payload.message || 'Could not read entitlement');
     }
@@ -1089,12 +1104,12 @@ async function fetchMembersEntitlement(accessToken) {
 }
 
 async function refreshMembersToken(refreshToken) {
-    const response = await fetch(`${AUTH_API_BASE}/auth/refresh`, {
+    const response = await authApiFetch('/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken })
     });
-    const payload = await response.json();
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.ok) {
         throw new Error(payload.message || 'Session refresh failed');
     }
@@ -1246,7 +1261,7 @@ function initializeMembersArea() {
 }
 
 async function authApiRequest(pathSuffix, options = {}) {
-    const response = await fetch(`${AUTH_API_BASE}${pathSuffix}`, options);
+    const response = await authApiFetch(pathSuffix, options);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.ok === false) {
         throw new Error(payload?.message || `Request failed (${response.status})`);
