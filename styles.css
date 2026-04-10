@@ -78,11 +78,6 @@ body {
     color: #10b981;
 }
 
-.header-cta .btn {
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
-    white-space: nowrap;
-}
 
 /* Main Content */
 .main {
@@ -617,11 +612,6 @@ body {
         gap: 1rem;
     }
 
-    .header-cta .btn {
-        width: 100%;
-        text-align: center;
-    }
-    
     .nav ul {
         gap: 1rem;
     }
