@@ -2,6 +2,7 @@
 // If you later add Functions to App Platform at /api/send-email,
 // you can switch this to '/api/send-email'.
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
+const AUTH_API_BASE = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
 
 function detectPlatformFromBrowser() {
     const userAgent = navigator.userAgent || '';
@@ -71,6 +72,8 @@ document.addEventListener('DOMContentLoaded', function() {
         el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
         observer.observe(el);
     });
+
+    initializeMembersArea();
 });
 
 // Registration Modal Functions
@@ -1018,6 +1021,237 @@ function showMessage(text, type) {
     setTimeout(() => {
         message.remove();
     }, 5000);
+}
+
+function membersStateKey() {
+    return 'bpMembersAuth';
+}
+
+function saveMembersState(state) {
+    localStorage.setItem(membersStateKey(), JSON.stringify(state));
+}
+
+function getMembersState() {
+    try {
+        return JSON.parse(localStorage.getItem(membersStateKey()) || '{}');
+    } catch (e) {
+        return {};
+    }
+}
+
+function clearMembersState() {
+    localStorage.removeItem(membersStateKey());
+}
+
+function renderMembersStatus(data) {
+    const panel = document.getElementById('membersStatusPanel');
+    if (!panel) return;
+    if (!data) {
+        panel.innerHTML = '<p style="color:#64748b;">Sign in to view your current entitlement.</p>';
+        return;
+    }
+
+    panel.innerHTML = `
+        <p><strong>Email:</strong> ${data.email || '-'}</p>
+        <p><strong>Status:</strong> ${data.state || '-'}</p>
+        <p><strong>Package:</strong> ${data.packageCode || 'Trial'}</p>
+        <p><strong>Trial Ends:</strong> ${data.trialEndsAt || '-'}</p>
+        <p><strong>Paid Ends:</strong> ${data.paidEndsAt || '-'}</p>
+        <p><strong>Grace Ends:</strong> ${data.graceEndsAt || '-'}</p>
+    `;
+}
+
+async function membersLogin(email, password) {
+    const response = await fetch(`${AUTH_API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'Login failed');
+    }
+    return payload;
+}
+
+async function fetchMembersEntitlement(accessToken) {
+    const response = await fetch(`${AUTH_API_BASE}/me/entitlement`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'Could not read entitlement');
+    }
+    return payload;
+}
+
+async function refreshMembersToken(refreshToken) {
+    const response = await fetch(`${AUTH_API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'Session refresh failed');
+    }
+    return payload;
+}
+
+async function updateMembersEntitlementFromStoredState() {
+    const state = getMembersState();
+    if (!state || !state.accessToken) {
+        renderMembersStatus(null);
+        return;
+    }
+    try {
+        const entitlement = await fetchMembersEntitlement(state.accessToken);
+        renderMembersStatus({
+            email: state.email,
+            state: entitlement.state,
+            packageCode: entitlement.packageCode,
+            trialEndsAt: entitlement.trialEndsAt,
+            paidEndsAt: entitlement.paidEndsAt,
+            graceEndsAt: entitlement.graceEndsAt
+        });
+    } catch (error) {
+        if (!state.refreshToken) {
+            renderMembersStatus(null);
+            return;
+        }
+        const refreshed = await refreshMembersToken(state.refreshToken);
+        const nextState = {
+            ...state,
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken || state.refreshToken
+        };
+        saveMembersState(nextState);
+        const entitlement = await fetchMembersEntitlement(nextState.accessToken);
+        renderMembersStatus({
+            email: nextState.email,
+            state: entitlement.state,
+            packageCode: entitlement.packageCode,
+            trialEndsAt: entitlement.trialEndsAt,
+            paidEndsAt: entitlement.paidEndsAt,
+            graceEndsAt: entitlement.graceEndsAt
+        });
+    }
+}
+
+function initializeMembersArea() {
+    const loginForm = document.getElementById('membersLoginForm');
+    const refreshBtn = document.getElementById('membersRefreshBtn');
+    const logoutBtn = document.getElementById('membersLogoutBtn');
+    const modeLoginBtn = document.getElementById('membersModeLoginBtn');
+    const modeSignupBtn = document.getElementById('membersModeSignupBtn');
+    const nameWrap = document.getElementById('membersNameWrap');
+    const submitBtn = document.getElementById('membersSubmitBtn');
+    if (!loginForm) return;
+    let membersMode = 'login';
+    const inlineMessageEl = document.getElementById('membersInlineMessage');
+
+    const syncMembersModeUi = () => {
+        if (nameWrap) nameWrap.style.display = membersMode === 'signup' ? 'block' : 'none';
+        if (submitBtn) submitBtn.textContent = membersMode === 'signup' ? 'Create Account' : 'Sign In';
+        if (modeLoginBtn) modeLoginBtn.style.opacity = membersMode === 'login' ? '1' : '0.75';
+        if (modeSignupBtn) modeSignupBtn.style.opacity = membersMode === 'signup' ? '1' : '0.75';
+    };
+    const showInlineMessage = (text, kind = 'error') => {
+        if (!inlineMessageEl) return;
+        inlineMessageEl.style.display = 'block';
+        inlineMessageEl.textContent = text;
+        inlineMessageEl.style.color = kind === 'success' ? '#065f46' : '#991b1b';
+    };
+    const clearInlineMessage = () => {
+        if (!inlineMessageEl) return;
+        inlineMessageEl.style.display = 'none';
+        inlineMessageEl.textContent = '';
+    };
+
+    window.setMembersMode = (mode) => {
+        membersMode = mode === 'signup' ? 'signup' : 'login';
+        clearInlineMessage();
+        syncMembersModeUi();
+    };
+
+    syncMembersModeUi();
+
+    if (modeLoginBtn) modeLoginBtn.addEventListener('click', () => window.setMembersMode('login'));
+    if (modeSignupBtn) modeSignupBtn.addEventListener('click', () => window.setMembersMode('signup'));
+
+    updateMembersEntitlementFromStoredState().catch(() => {
+        renderMembersStatus(null);
+    });
+
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const emailInput = document.getElementById('membersEmail');
+        const nameInput = document.getElementById('membersName');
+        const passwordInput = document.getElementById('membersPassword');
+        const email = (emailInput?.value || '').trim().toLowerCase();
+        const name = (nameInput?.value || '').trim();
+        const password = passwordInput?.value || '';
+        if (!email || !password) {
+            showInlineMessage('Enter both email and password.');
+            showMessage('Enter both email and password.', 'error');
+            return;
+        }
+        clearInlineMessage();
+        try {
+            if (membersMode === 'signup') {
+                await authApiRequest('/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, name })
+                });
+            }
+            const payload = await membersLogin(email, password);
+            saveMembersState({
+                email,
+                accessToken: payload.accessToken,
+                refreshToken: payload.refreshToken
+            });
+            await updateMembersEntitlementFromStoredState();
+            showInlineMessage(membersMode === 'signup' ? 'Account created and signed in.' : 'Signed in successfully.', 'success');
+            showMessage(membersMode === 'signup' ? 'Account created and signed in.' : 'Members login successful.', 'success');
+            if (passwordInput) passwordInput.value = '';
+            if (membersMode === 'signup' && nameInput) nameInput.value = '';
+        } catch (error) {
+            showInlineMessage(error.message || 'Members login failed.');
+            showMessage(error.message || 'Members login failed.', 'error');
+        }
+    });
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', async function() {
+            try {
+                await updateMembersEntitlementFromStoredState();
+                showMessage('Status refreshed.', 'success');
+            } catch (error) {
+                showMessage(error.message || 'Could not refresh status.', 'error');
+            }
+        });
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+            clearMembersState();
+            renderMembersStatus(null);
+            showMessage('Signed out from members area.', 'success');
+        });
+    }
+}
+
+async function authApiRequest(pathSuffix, options = {}) {
+    const response = await fetch(`${AUTH_API_BASE}${pathSuffix}`, options);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.message || `Request failed (${response.status})`);
+    }
+    return payload;
 }
 
 // Card formatting functions no longer needed - PayPal handles card input
