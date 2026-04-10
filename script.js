@@ -2,8 +2,7 @@
 // If you later add Functions to App Platform at /api/send-email,
 // you can switch this to '/api/send-email'.
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
-const AUTH_API_BASE = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
-const AUTH_API_BASE_CANDIDATES = ['/api/auth', AUTH_API_BASE];
+const AUTH_API_BASE = '/api/auth';
 
 function detectPlatformFromBrowser() {
     const userAgent = navigator.userAgent || '';
@@ -1063,18 +1062,7 @@ function renderMembersStatus(data) {
 }
 
 async function authApiFetch(pathSuffix, options = {}) {
-    let lastError = null;
-    for (const base of AUTH_API_BASE_CANDIDATES) {
-        try {
-            const response = await fetch(`${base}${pathSuffix}`, options);
-            // If App Platform proxy returns any error, retry direct function URL.
-            const canFallback = base === '/api/auth' && response.status >= 400;
-            if (!canFallback) return response;
-        } catch (error) {
-            lastError = error;
-        }
-    }
-    throw lastError || new Error('Failed to reach authentication service');
+    return fetch(`${AUTH_API_BASE}${pathSuffix}`, options);
 }
 
 async function membersLogin(email, password) {
