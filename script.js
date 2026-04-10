@@ -1079,11 +1079,13 @@ async function membersLogin(email, password) {
 }
 
 async function fetchMembersEntitlement(accessToken) {
-    const response = await authApiFetch('/me/entitlement', {
-        method: 'GET',
+    const response = await authApiFetch('/auth/entitlement', {
+        method: 'POST',
         headers: {
-            'Authorization': `Bearer ${accessToken}`
-        }
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.ok) {
@@ -1228,7 +1230,19 @@ function initializeMembersArea() {
                 accessToken: payload.accessToken,
                 refreshToken: payload.refreshToken
             });
-            await updateMembersEntitlementFromStoredState();
+            // Keep members flow resilient even if entitlement endpoint is temporarily unavailable.
+            try {
+                await updateMembersEntitlementFromStoredState();
+            } catch (_entitlementError) {
+                renderMembersStatus({
+                    email,
+                    state: 'trial',
+                    packageCode: 'Trial',
+                    trialEndsAt: '-',
+                    paidEndsAt: '-',
+                    graceEndsAt: '-'
+                });
+            }
             showInlineMessage(membersMode === 'signup' ? 'Account created and signed in.' : 'Signed in successfully.', 'success');
             showMessage(membersMode === 'signup' ? 'Account created and signed in.' : 'Members login successful.', 'success');
             if (passwordInput) passwordInput.value = '';
