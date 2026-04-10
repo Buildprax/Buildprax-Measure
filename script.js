@@ -3,6 +3,7 @@
 // you can switch this to '/api/send-email'.
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
 const AUTH_API_BASE = '/api/auth';
+const AUTH_API_FALLBACK_BASE = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
 
 function detectPlatformFromBrowser() {
     const userAgent = navigator.userAgent || '';
@@ -1062,7 +1063,19 @@ function renderMembersStatus(data) {
 }
 
 async function authApiFetch(pathSuffix, options = {}) {
-    return fetch(`${AUTH_API_BASE}${pathSuffix}`, options);
+    const primaryResponse = await fetch(`${AUTH_API_BASE}${pathSuffix}`, options);
+    if (primaryResponse.status < 400) {
+        return primaryResponse;
+    }
+
+    // If the App Platform route rejects payloads, retry the function URL directly.
+    try {
+        const fallbackResponse = await fetch(`${AUTH_API_FALLBACK_BASE}${pathSuffix}`, options);
+        return fallbackResponse;
+    } catch (_fallbackError) {
+        // Keep the primary response so caller can surface the server message/status.
+        return primaryResponse;
+    }
 }
 
 async function membersLogin(email, password) {
