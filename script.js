@@ -1313,7 +1313,35 @@ function initializeMembersArea() {
     }
 }
 
+function readMembersQueryParam(name) {
+    const fromSearch = new URLSearchParams(window.location.search || '').get(name);
+    if (fromSearch !== null && fromSearch !== '') return fromSearch;
+    const hash = window.location.hash || '';
+    const qm = hash.indexOf('?');
+    if (qm >= 0) {
+        const h = new URLSearchParams(hash.slice(qm + 1));
+        const v = h.get(name);
+        if (v !== null && v !== '') return v;
+    }
+    return null;
+}
+
 async function processMembersUrlActions(showInlineMessage) {
+    const verified = readMembersQueryParam('verified');
+    const verifyReason = readMembersQueryParam('reason');
+    if (verified === '1') {
+        showInlineMessage('Email verified successfully. You can now sign in.', 'success');
+        window.history.replaceState({}, '', `${window.location.pathname}#members`);
+        return;
+    }
+    if (verified === '0') {
+        const msg = verifyReason
+            ? `Verification issue: ${decodeURIComponent(verifyReason)}`
+            : 'Email verification failed.';
+        showInlineMessage(msg);
+        window.history.replaceState({}, '', `${window.location.pathname}#members`);
+        return;
+    }
     const params = new URLSearchParams(window.location.search || '');
     const verifyToken = params.get('verify');
     const resetToken = params.get('reset');
