@@ -1062,7 +1062,17 @@ function renderMembersStatus(data) {
 }
 
 async function authApiFetch(pathSuffix, options = {}) {
-    return fetch(`${AUTH_API_BASE}${pathSuffix}`, options);
+    const url = `${AUTH_API_BASE}${pathSuffix}`;
+    const merged = {
+        cache: 'no-store',
+        ...options,
+        headers: {
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+            ...(options.headers || {}),
+        },
+    };
+    return fetch(url, merged);
 }
 
 function parseAuthJsonResponse(raw) {
@@ -1106,17 +1116,38 @@ function applyAuthTokenAliases(payload) {
 }
 
 async function membersLogin(email, password) {
-    const response = await authApiFetch('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe: true })
-    });
-    const raw = await response.text();
+    const loginBody = JSON.stringify({ email, password, rememberMe: true });
+    const loginHeaders = { 'Content-Type': 'application/json' };
+
+    async function loginOnce(suffix) {
+        const response = await authApiFetch(suffix, {
+            method: 'POST',
+            headers: loginHeaders,
+            body: loginBody,
+        });
+        const raw = await response.text();
+        return { response, raw };
+    }
+
+    let { response, raw } = await loginOnce('/auth/login');
+
+    if (response.status === 204 || response.status === 304) {
+        throw new Error(
+            `Sign-in returned HTTP ${response.status} with no body (often a cache or service worker). Open a private window, unregister any service worker for this site, then try again.`,
+        );
+    }
+
+    if (response.ok && !String(raw || '').trim()) {
+        ({ response, raw } = await loginOnce(`/auth/login?cb=${Date.now()}`));
+    }
+
     if (String(raw || '').trimStart().startsWith('<')) {
         throw new Error('Sign-in received an HTML page instead of JSON (network, proxy, or cache). Try a hard refresh or another connection.');
     }
     if (response.ok && !String(raw || '').trim()) {
-        throw new Error('Sign-in returned an empty response. Check your connection or try the desktop app.');
+        throw new Error(
+            'Sign-in still returned an empty body. Try: (1) private/incognito window, (2) another browser, (3) the desktop app. If you use Cloudflare on buildprax.com, purge cache for paths hitting the auth API.',
+        );
     }
     let payload = applyAuthTokenAliases(normalizeAuthApiEnvelope(parseAuthJsonResponse(raw)));
     if (!response.ok) {
