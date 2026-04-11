@@ -1129,8 +1129,24 @@ async function membersLogin(email, password) {
         return { response, raw };
     }
 
-    // Use `/auth/session` (not `/auth/login`) so a service worker cannot replay a cached OPTIONS 204 for the same URL as the POST.
-    let { response, raw } = await loginOnce('/auth/session');
+    // Prefer `/auth/session` (not `/auth/login`) so a service worker cannot replay a cached OPTIONS 204 for the same URL as the POST.
+    let loginPath = '/auth/session'
+    let { response, raw } = await loginOnce(loginPath)
+
+    if (response.status === 404) {
+        let j = {}
+        try {
+            j = parseAuthJsonResponse(raw)
+        } catch {
+            j = {}
+        }
+        const routeMissing =
+            j?.code === 'NOT_FOUND' || String(j?.message || '').includes('Route not found')
+        if (routeMissing) {
+            loginPath = '/auth/login'
+            ;({ response, raw } = await loginOnce(loginPath))
+        }
+    }
 
     if (response.status === 204 || response.status === 304) {
         throw new Error(
@@ -1139,7 +1155,8 @@ async function membersLogin(email, password) {
     }
 
     if (response.ok && !String(raw || '').trim()) {
-        ({ response, raw } = await loginOnce(`/auth/session?cb=${Date.now()}`));
+        const sep = loginPath.includes('?') ? '&' : '?'
+        ;({ response, raw } = await loginOnce(`${loginPath}${sep}cb=${Date.now()}`))
     }
 
     if (String(raw || '').trimStart().startsWith('<')) {
