@@ -1129,7 +1129,8 @@ async function membersLogin(email, password) {
         return { response, raw };
     }
 
-    let { response, raw } = await loginOnce('/auth/login');
+    // Use `/auth/session` (not `/auth/login`) so a service worker cannot replay a cached OPTIONS 204 for the same URL as the POST.
+    let { response, raw } = await loginOnce('/auth/session');
 
     if (response.status === 204 || response.status === 304) {
         throw new Error(
@@ -1138,7 +1139,7 @@ async function membersLogin(email, password) {
     }
 
     if (response.ok && !String(raw || '').trim()) {
-        ({ response, raw } = await loginOnce(`/auth/login?cb=${Date.now()}`));
+        ({ response, raw } = await loginOnce(`/auth/session?cb=${Date.now()}`));
     }
 
     if (String(raw || '').trimStart().startsWith('<')) {
@@ -1246,16 +1247,37 @@ function initializeMembersArea() {
     const passwordConfirmWrap = document.getElementById('membersPasswordConfirmWrap');
     const submitBtn = document.getElementById('membersSubmitBtn');
     const forgotPasswordBtn = document.getElementById('membersForgotPasswordBtn');
+    const resendVerifyBtn = document.getElementById('membersResendVerifyBtn');
+    const backToChoiceBtn = document.getElementById('membersBackToChoiceBtn');
+    const choiceWrap = document.getElementById('membersChoiceWrap');
+    const formFieldsWrap = document.getElementById('membersFormFieldsWrap');
+    const formStepHint = document.getElementById('membersFormStepHint');
     if (!loginForm) return;
     let membersMode = 'login';
+    /** 'choice' = only Sign In / Create Account buttons; 'form' = email/password step */
+    let membersPhase = 'choice';
     const inlineMessageEl = document.getElementById('membersInlineMessage');
+
+    const showMembersPhase = (phase) => {
+        membersPhase = phase === 'form' ? 'form' : 'choice';
+        if (choiceWrap) choiceWrap.style.display = membersPhase === 'choice' ? 'block' : 'none';
+        if (formFieldsWrap) formFieldsWrap.style.display = membersPhase === 'form' ? 'block' : 'none';
+    };
 
     const syncMembersModeUi = () => {
         if (nameWrap) nameWrap.style.display = membersMode === 'signup' ? 'block' : 'none';
         if (passwordConfirmWrap) passwordConfirmWrap.style.display = membersMode === 'signup' ? 'block' : 'none';
-        if (submitBtn) submitBtn.textContent = membersMode === 'signup' ? 'Create Account' : 'Sign In';
+        if (submitBtn) submitBtn.textContent = membersMode === 'signup' ? 'Create account' : 'Sign in';
         if (modeLoginBtn) modeLoginBtn.style.opacity = membersMode === 'login' ? '1' : '0.75';
         if (modeSignupBtn) modeSignupBtn.style.opacity = membersMode === 'signup' ? '1' : '0.75';
+        if (formStepHint) {
+            formStepHint.textContent =
+                membersMode === 'signup'
+                    ? 'Enter your details below, then create your account. You will verify your email before your first sign-in.'
+                    : 'Enter your email and password below, then sign in.';
+        }
+        if (forgotPasswordBtn) forgotPasswordBtn.style.display = membersMode === 'login' ? 'inline-block' : 'none';
+        if (resendVerifyBtn) resendVerifyBtn.style.display = 'inline-block';
     };
     const showInlineMessage = (text, kind = 'error') => {
         if (!inlineMessageEl) return;
@@ -1272,13 +1294,23 @@ function initializeMembersArea() {
     window.setMembersMode = (mode) => {
         membersMode = mode === 'signup' ? 'signup' : 'login';
         clearInlineMessage();
+        showMembersPhase('form');
         syncMembersModeUi();
     };
 
+    showMembersPhase('choice');
     syncMembersModeUi();
 
     if (modeLoginBtn) modeLoginBtn.addEventListener('click', () => window.setMembersMode('login'));
     if (modeSignupBtn) modeSignupBtn.addEventListener('click', () => window.setMembersMode('signup'));
+    if (backToChoiceBtn) {
+        backToChoiceBtn.addEventListener('click', () => {
+            clearInlineMessage();
+            membersMode = 'login';
+            showMembersPhase('choice');
+            syncMembersModeUi();
+        });
+    }
 
     updateMembersEntitlementFromStoredState().catch(() => {
         renderMembersStatus(null);
@@ -1369,7 +1401,7 @@ function initializeMembersArea() {
             const emailInput = document.getElementById('membersEmail');
             const email = (emailInput?.value || '').trim().toLowerCase();
             if (!email || !email.includes('@')) {
-                showInlineMessage('Enter your email first, then click Forgot Password.');
+                showInlineMessage('Enter your email first, then click Forgot password.');
                 return;
             }
             try {
@@ -1381,6 +1413,31 @@ function initializeMembersArea() {
                 showInlineMessage('If this email exists, a reset link has been sent.', 'success');
             } catch (error) {
                 showInlineMessage(error.message || 'Could not start password reset.');
+            }
+        });
+    }
+
+    if (resendVerifyBtn) {
+        resendVerifyBtn.addEventListener('click', async function() {
+            const emailInput = document.getElementById('membersEmail');
+            const email = (emailInput?.value || '').trim().toLowerCase();
+            if (!email || !email.includes('@')) {
+                showInlineMessage('Enter your email first, then click Resend verification email.');
+                return;
+            }
+            try {
+                const payload = await authApiRequest('/auth/resend-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                if (payload?.alreadyVerified) {
+                    showInlineMessage('This account is already verified. You can sign in.', 'success');
+                } else {
+                    showInlineMessage('If this email is registered and needs verification, we sent a new message. Check junk mail.', 'success');
+                }
+            } catch (error) {
+                showInlineMessage(error.message || 'Could not resend verification email.');
             }
         });
     }
@@ -1400,6 +1457,8 @@ function initializeMembersArea() {
         logoutBtn.addEventListener('click', function() {
             clearMembersState();
             renderMembersStatus(null);
+            showMembersPhase('choice');
+            clearInlineMessage();
             showMessage('Signed out from members area.', 'success');
         });
     }
@@ -1440,6 +1499,7 @@ async function processMembersUrlActions(showInlineMessage) {
     const verifyToken = params.get('verify');
     const resetToken = params.get('reset');
     if (verifyToken) {
+        if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
         try {
             await authApiRequest('/auth/verify-email', {
                 method: 'POST',
@@ -1460,8 +1520,10 @@ async function processMembersUrlActions(showInlineMessage) {
         if (!confirmPassword) return;
         if (newPassword !== confirmPassword) {
             showInlineMessage('Passwords do not match.');
+            if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
             return;
         }
+        if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
         try {
             await authApiRequest('/auth/reset-password', {
                 method: 'POST',

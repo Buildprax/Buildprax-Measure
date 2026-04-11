@@ -380,37 +380,44 @@
             </p>
             <div class="members-grid">
                 <div class="support-card" style="text-align:left;">
-                    <h3>🔐 Sign In</h3>
-                    <div style="display:flex; gap:0.5rem; margin-bottom:0.8rem;">
-                        <button id="membersModeLoginBtn" type="button" class="btn btn-secondary" style="padding:8px 12px;" onclick="setMembersMode('login')">Sign In</button>
-                        <button id="membersModeSignupBtn" type="button" class="btn btn-secondary" style="padding:8px 12px;" onclick="setMembersMode('signup')">Create Account</button>
+                    <h3>Members account</h3>
+                    <div id="membersChoiceWrap">
+                        <div class="members-mode-btns">
+                            <button id="membersModeLoginBtn" type="button" class="btn btn-secondary">Sign In</button>
+                            <button id="membersModeSignupBtn" type="button" class="btn btn-secondary">Create Account</button>
+                        </div>
                     </div>
-                    <form id="membersLoginForm">
-                        <div class="form-group" id="membersNameWrap" style="display:none;">
-                            <label for="membersName">Full Name</label>
-                            <input type="text" id="membersName" placeholder="Your full name">
+                    <div id="membersFormFieldsWrap" style="display:none;">
+                        <p id="membersFormStepHint" style="font-size:0.92rem;color:#334155;margin:0 0 1rem 0;"></p>
+                        <form id="membersLoginForm" novalidate>
+                            <div class="form-group" id="membersNameWrap" style="display:none;">
+                                <label for="membersName">Full Name</label>
+                                <input type="text" id="membersName" placeholder="Your full name" autocomplete="name">
+                            </div>
+                            <div class="form-group">
+                                <label for="membersEmail">Email address</label>
+                                <input type="email" id="membersEmail" placeholder="you@example.com" autocomplete="username">
+                            </div>
+                            <div class="form-group">
+                                <label for="membersPassword">Password</label>
+                                <input type="password" id="membersPassword" placeholder="Your password" autocomplete="current-password">
+                            </div>
+                            <div class="form-group" id="membersPasswordConfirmWrap" style="display:none;">
+                                <label for="membersPasswordConfirm">Confirm password</label>
+                                <input type="password" id="membersPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password">
+                            </div>
+                            <p id="membersInlineMessage" style="display:none; margin-bottom:10px; font-size:0.92rem;"></p>
+                            <button id="membersSubmitBtn" type="submit" class="btn" style="width:100%;">Continue</button>
+                        </form>
+                        <div class="members-secondary-actions" style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+                            <button id="membersForgotPasswordBtn" type="button" class="btn btn-secondary" style="padding:8px 12px;">Forgot password</button>
+                            <button id="membersResendVerifyBtn" type="button" class="btn btn-secondary" style="padding:8px 12px;">Resend verification email</button>
                         </div>
-                        <div class="form-group">
-                            <label for="membersEmail">Email Address *</label>
-                            <input type="email" id="membersEmail" required placeholder="you@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="membersPassword">Password *</label>
-                            <input type="password" id="membersPassword" required placeholder="Your password">
-                        </div>
-                        <div class="form-group" id="membersPasswordConfirmWrap" style="display:none;">
-                            <label for="membersPasswordConfirm">Confirm Password *</label>
-                            <input type="password" id="membersPasswordConfirm" placeholder="Re-enter your password">
-                        </div>
-                        <p id="membersInlineMessage" style="display:none; margin-bottom:10px; font-size:0.92rem;"></p>
-                        <button id="membersSubmitBtn" type="submit" class="btn" style="width:100%;">Sign In</button>
-                    </form>
-                    <div style="margin-top:0.7rem; display:flex; gap:0.6rem; flex-wrap:wrap;">
-                        <button id="membersForgotPasswordBtn" type="button" class="btn btn-secondary" style="padding:8px 12px;">Forgot Password</button>
+                        <button id="membersBackToChoiceBtn" type="button" class="btn btn-secondary" style="width:100%; margin-top:0.75rem;">Back</button>
+                        <p style="font-size:0.9rem;color:#6b7280;margin-top:1rem;">
+                            New accounts must verify email before first sign-in. Use <strong>Resend verification email</strong> if the message is slow or in junk mail.
+                        </p>
                     </div>
-                    <p style="font-size:0.9rem;color:#6b7280;margin-top:1rem;">
-                        New user? Create your account, confirm your email, then sign in.
-                    </p>
                 </div>
                 <div class="support-card" style="text-align:left;">
                     <h3>📄 Subscription Status</h3>
@@ -631,6 +638,6 @@
     
     <!-- IMPORTANT: Load PayPal SDK only once per page -->
     <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&vault=true&intent=subscription"></script>
-    <script src="script.js?v=28"></script>
+    <script src="script.js?v=31"></script>
 </body>
 </html>
