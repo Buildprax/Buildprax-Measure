@@ -1066,12 +1066,43 @@ async function authApiFetch(pathSuffix, options = {}) {
 }
 
 function parseAuthJsonResponse(raw) {
-    if (!raw || !String(raw).trim()) return {};
+    const s = String(raw || '').replace(/^\uFEFF/, '').trim();
+    if (!s) return {};
     try {
-        return JSON.parse(raw);
+        return JSON.parse(s);
     } catch {
         return {};
     }
+}
+
+/** Some gateways return OpenWhisk-style { body: "<json>" } instead of raw JSON. */
+function normalizeAuthApiEnvelope(payload) {
+    let p = payload;
+    for (let i = 0; i < 5 && p && typeof p === 'object'; i++) {
+        if (p.body != null && typeof p.body === 'object' && !Array.isArray(p.body)) {
+            p = p.body;
+            continue;
+        }
+        if (typeof p.body !== 'string') break;
+        const t = p.body.trim();
+        if (!t.startsWith('{') && !t.startsWith('[')) break;
+        try {
+            const inner = JSON.parse(t);
+            if (!inner || typeof inner !== 'object') break;
+            p = inner;
+        } catch {
+            break;
+        }
+    }
+    return p;
+}
+
+function applyAuthTokenAliases(payload) {
+    if (!payload || typeof payload !== 'object') return payload;
+    const out = { ...payload };
+    if (!out.accessToken && out.access_token) out.accessToken = out.access_token;
+    if (!out.refreshToken && out.refresh_token) out.refreshToken = out.refresh_token;
+    return out;
 }
 
 async function membersLogin(email, password) {
@@ -1081,7 +1112,13 @@ async function membersLogin(email, password) {
         body: JSON.stringify({ email, password, rememberMe: true })
     });
     const raw = await response.text();
-    const payload = parseAuthJsonResponse(raw);
+    if (String(raw || '').trimStart().startsWith('<')) {
+        throw new Error('Sign-in received an HTML page instead of JSON (network, proxy, or cache). Try a hard refresh or another connection.');
+    }
+    if (response.ok && !String(raw || '').trim()) {
+        throw new Error('Sign-in returned an empty response. Check your connection or try the desktop app.');
+    }
+    let payload = applyAuthTokenAliases(normalizeAuthApiEnvelope(parseAuthJsonResponse(raw)));
     if (!response.ok) {
         const msg = payload.message || payload.code || `Sign-in failed (${response.status}).`;
         throw new Error(msg);
@@ -1094,7 +1131,7 @@ async function membersLogin(email, password) {
         throw new Error(msg);
     }
     if (!payload.accessToken) {
-        throw new Error('Sign-in returned an incomplete response. Please try again or use the desktop app.');
+        throw new Error('Sign-in response did not include a session token. Try a hard refresh (clear cache) or use the desktop app. If it persists, your network may be altering API responses.');
     }
     return payload;
 }
@@ -1410,9 +1447,13 @@ async function processMembersUrlActions(showInlineMessage) {
 
 async function authApiRequest(pathSuffix, options = {}) {
     const response = await authApiFetch(pathSuffix, options);
-    const payload = await response.json().catch(() => ({}));
+    const raw = await response.text();
+    if (String(raw || '').trimStart().startsWith('<')) {
+        throw new Error('Server returned HTML instead of JSON. Check your connection or try again.');
+    }
+    const payload = applyAuthTokenAliases(normalizeAuthApiEnvelope(parseAuthJsonResponse(raw)));
     if (!response.ok || payload?.ok === false) {
-        throw new Error(payload?.message || `Request failed (${response.status})`);
+        throw new Error(payload?.message || payload?.code || `Request failed (${response.status})`);
     }
     return payload;
 }
