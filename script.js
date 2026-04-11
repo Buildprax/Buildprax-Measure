@@ -1065,15 +1065,36 @@ async function authApiFetch(pathSuffix, options = {}) {
     return fetch(`${AUTH_API_BASE}${pathSuffix}`, options);
 }
 
+function parseAuthJsonResponse(raw) {
+    if (!raw || !String(raw).trim()) return {};
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return {};
+    }
+}
+
 async function membersLogin(email, password) {
     const response = await authApiFetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, rememberMe: true })
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.ok) {
-        throw new Error(payload.message || 'Login failed');
+    const raw = await response.text();
+    const payload = parseAuthJsonResponse(raw);
+    if (!response.ok) {
+        const msg = payload.message || payload.code || `Sign-in failed (${response.status}).`;
+        throw new Error(msg);
+    }
+    if (payload.confirmationRequired && payload.preAuthToken) {
+        throw new Error('This account needs licensed-device confirmation in the Buildprax Measure Pro desktop app. Website sign-in is not available for this step.');
+    }
+    if (payload.ok === false) {
+        const msg = payload.message || payload.code || 'Sign-in failed. Check your password or try again.';
+        throw new Error(msg);
+    }
+    if (!payload.accessToken) {
+        throw new Error('Sign-in returned an incomplete response. Please try again or use the desktop app.');
     }
     return payload;
 }
@@ -1240,7 +1261,10 @@ function initializeMembersArea() {
                 if (passwordInput) passwordInput.value = '';
                 if (passwordConfirmInput) passwordConfirmInput.value = '';
                 if (nameInput) nameInput.value = '';
-                if (signupPayload?.requiresEmailVerification) return;
+                // Never chain login in the same submit — new accounts are unverified until link or password-reset completes.
+                if (signupPayload?.emailVerified !== true) {
+                    return;
+                }
             }
             const payload = await membersLogin(email, password);
             saveMembersState({
@@ -1330,11 +1354,13 @@ async function processMembersUrlActions(showInlineMessage) {
     const verified = readMembersQueryParam('verified');
     const verifyReason = readMembersQueryParam('reason');
     if (verified === '1') {
+        if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
         showInlineMessage('Email verified successfully. You can now sign in.', 'success');
         window.history.replaceState({}, '', `${window.location.pathname}#members`);
         return;
     }
     if (verified === '0') {
+        if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
         const msg = verifyReason
             ? `Verification issue: ${decodeURIComponent(verifyReason)}`
             : 'Email verification failed.';
