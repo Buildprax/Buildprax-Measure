@@ -12,6 +12,23 @@ const UPSTREAM = String(
 const PREFIX = String(process.env.PROXY_STRIP_PREFIX || '/api/auth').replace(/\/$/, '')
 const PORT = Number(process.env.PORT || 8080)
 
+/** www → apex API calls are cross-origin; browsers require CORS on responses + OPTIONS preflight. */
+const ALLOWED_ORIGINS = new Set(['https://buildprax.com', 'https://www.buildprax.com'])
+
+function mergeCors(req, headers = {}) {
+  const origin = req.headers.origin
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    return {
+      ...headers,
+      'access-control-allow-origin': origin,
+      'access-control-allow-methods': 'GET, POST, HEAD, OPTIONS',
+      'access-control-allow-headers': 'Content-Type, Authorization, Cache-Control, Pragma',
+      vary: 'Origin',
+    }
+  }
+  return headers
+}
+
 const HOP_BY_HOP = new Set([
   'connection',
   'keep-alive',
@@ -62,30 +79,41 @@ function buildTargetUrl(fullPathAndQuery) {
   return `${UPSTREAM}${rest}`
 }
 
-function sendJson(res, status, body) {
+function sendJson(req, res, status, body) {
   const buf = Buffer.from(JSON.stringify(body))
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store',
-    'content-length': buf.length,
-  })
+  res.writeHead(
+    status,
+    mergeCors(req, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'content-length': buf.length,
+    }),
+  )
   res.end(buf)
 }
 
 const server = http.createServer(async (req, res) => {
   const full = normalizeIncomingPath(String(req.url || '/').split('#')[0])
+  const method = String(req.method || 'GET').toUpperCase()
+
+  if (
+    method === 'OPTIONS' &&
+    (full.startsWith(`${PREFIX}/`) || full === PREFIX || full === '/healthz' || full.startsWith('/healthz?'))
+  ) {
+    res.writeHead(204, mergeCors(req, { 'content-length': '0' }))
+    return res.end()
+  }
 
   if (full === `${PREFIX}/healthz` || full.startsWith(`${PREFIX}/healthz?`)) {
-    return sendJson(res, 200, { ok: true, proxy: true, prefix: PREFIX, upstream: UPSTREAM })
+    return sendJson(req, res, 200, { ok: true, proxy: true, prefix: PREFIX, upstream: UPSTREAM })
   }
 
   if (!full.startsWith(`${PREFIX}/`) && full !== PREFIX) {
-    res.writeHead(404)
+    res.writeHead(404, mergeCors(req, {}))
     return res.end('')
   }
 
   const targetUrl = buildTargetUrl(full)
-  const method = String(req.method || 'GET').toUpperCase()
   const hasBody = !['GET', 'HEAD'].includes(method)
 
   try {
@@ -124,9 +152,9 @@ const server = http.createServer(async (req, res) => {
       )
     }
 
-    const outHeaders = {
+    const outHeaders = mergeCors(req, {
       'cache-control': 'no-store, no-cache, private, must-revalidate',
-    }
+    })
     if (contentType) outHeaders['content-type'] = contentType
 
     const loc = upstream.headers.get('location')
@@ -141,7 +169,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(status, outHeaders)
     res.end(payload)
   } catch (err) {
-    sendJson(res, 502, {
+    sendJson(req, res, 502, {
       ok: false,
       code: 'PROXY_ERROR',
       message: err?.message || 'Could not reach authentication service.',
