@@ -10,8 +10,10 @@ function getAuthApiBase() {
     if (typeof window === 'undefined') return AUTH_API_DIRECT;
     try {
         const h = String(window.location.hostname || '').toLowerCase();
+        // Always use apex for /api/auth: App Platform often routes the Web Service only for buildprax.com,
+        // so www.buildprax.com would otherwise hit the static site and return HTML for POST.
         if (h === 'buildprax.com' || h === 'www.buildprax.com') {
-            return `${window.location.origin}/api/auth`;
+            return 'https://buildprax.com/api/auth';
         }
     } catch (_) {
         /* ignore */
