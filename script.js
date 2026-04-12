@@ -2,7 +2,22 @@
 // If you later add Functions to App Platform at /api/send-email,
 // you can switch this to '/api/send-email'.
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
-const AUTH_API_BASE = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
+/** Direct DigitalOcean auth function (desktop apps, local file preview, non-production hosts). */
+const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
+
+/** Same-origin proxy on live site removes cross-origin CORS/SW issues for browser sign-in. */
+function getAuthApiBase() {
+    if (typeof window === 'undefined') return AUTH_API_DIRECT;
+    try {
+        const h = String(window.location.hostname || '').toLowerCase();
+        if (h === 'buildprax.com' || h === 'www.buildprax.com') {
+            return `${window.location.origin}/api/auth`;
+        }
+    } catch (_) {
+        /* ignore */
+    }
+    return AUTH_API_DIRECT;
+}
 
 function detectPlatformFromBrowser() {
     const userAgent = navigator.userAgent || '';
@@ -1062,7 +1077,7 @@ function renderMembersStatus(data) {
 }
 
 async function authApiFetch(pathSuffix, options = {}) {
-    const url = `${AUTH_API_BASE}${pathSuffix}`;
+    const url = `${getAuthApiBase()}${pathSuffix}`;
     const merged = {
         cache: 'no-store',
         ...options,
@@ -1119,7 +1134,10 @@ async function membersLogin(email, password) {
     const loginBody = JSON.stringify({ email, password, rememberMe: true });
     const loginHeaders = { 'Content-Type': 'application/json' };
 
-    async function loginOnce(suffix) {
+    /** Fresh URL every time so caches/SW cannot treat POST like a cached OPTIONS 204 for a stable path. */
+    async function loginOnce(pathBase) {
+        const sep = pathBase.includes('?') ? '&' : '?';
+        const suffix = `${pathBase}${sep}cb=${Date.now()}&n=${Math.random().toString(36).slice(2, 11)}`;
         const response = await authApiFetch(suffix, {
             method: 'POST',
             headers: loginHeaders,
@@ -1129,60 +1147,64 @@ async function membersLogin(email, password) {
         return { response, raw };
     }
 
-    // Prefer `/auth/session` (not `/auth/login`) so a service worker cannot replay a cached OPTIONS 204 for the same URL as the POST.
-    let loginPath = '/auth/session'
-    let { response, raw } = await loginOnce(loginPath)
-
-    if (response.status === 404) {
-        let j = {}
-        try {
-            j = parseAuthJsonResponse(raw)
-        } catch {
-            j = {}
-        }
-        const routeMissing =
-            j?.code === 'NOT_FOUND' || String(j?.message || '').includes('Route not found')
-        if (routeMissing) {
-            loginPath = '/auth/login'
-            ;({ response, raw } = await loginOnce(loginPath))
-        }
+    function routeNotFound404(response, raw) {
+        if (response.status !== 404) return false;
+        const j = parseAuthJsonResponse(raw);
+        return j?.code === 'NOT_FOUND' || String(j?.message || '').includes('Route not found');
     }
 
-    if (response.status === 204 || response.status === 304) {
+    function isEmptySuccessHiccup(response, raw) {
+        if (response.status === 204 || response.status === 304) return true;
+        if (response.ok && !String(raw || '').trim()) return true;
+        return false;
+    }
+
+    const pathCycle = ['/auth/session', '/auth/login', '/auth/session', '/auth/login'];
+    let last = { response: { status: 0 }, raw: '' };
+
+    for (const pathBase of pathCycle) {
+        const attempt = await loginOnce(pathBase);
+        last = attempt;
+        const { response, raw } = attempt;
+
+        if (routeNotFound404(response, raw)) continue;
+        if (isEmptySuccessHiccup(response, raw)) continue;
+
+        if (String(raw || '').trimStart().startsWith('<')) {
+            throw new Error('Sign-in received an HTML page instead of JSON (network, proxy, or cache). Try a hard refresh or another connection.');
+        }
+
+        const payload = applyAuthTokenAliases(normalizeAuthApiEnvelope(parseAuthJsonResponse(raw)));
+        if (!response.ok) {
+            const msg = payload.message || payload.code || `Sign-in failed (${response.status}).`;
+            throw new Error(msg);
+        }
+        if (payload.confirmationRequired && payload.preAuthToken) {
+            throw new Error('This account needs licensed-device confirmation in the Buildprax Measure Pro desktop app. Website sign-in is not available for this step.');
+        }
+        if (payload.ok === false) {
+            const msg = payload.message || payload.code || 'Sign-in failed. Check your password or try again.';
+            throw new Error(msg);
+        }
+        if (!payload.accessToken) {
+            throw new Error('Sign-in response did not include a session token. Try a hard refresh (clear cache) or use the desktop app. If it persists, your network may be altering API responses.');
+        }
+        return payload;
+    }
+
+    const st = last.response?.status;
+    if (st === 204 || st === 304) {
+        const host = typeof window !== 'undefined' && window.location?.hostname ? window.location.hostname : 'this site';
         throw new Error(
-            `Sign-in returned HTTP ${response.status} with no body (often a cache or service worker). Open a private window, unregister any service worker for this site, then try again.`,
+            `Sign-in still returned HTTP ${st} with no body after several tries (often a browser cache, extension, or service worker on ${host}, not the API). Try: private/incognito, unregister any service worker for ${host}, another browser, or the Measure Pro desktop app.`,
         );
     }
-
-    if (response.ok && !String(raw || '').trim()) {
-        const sep = loginPath.includes('?') ? '&' : '?'
-        ;({ response, raw } = await loginOnce(`${loginPath}${sep}cb=${Date.now()}`))
-    }
-
-    if (String(raw || '').trimStart().startsWith('<')) {
-        throw new Error('Sign-in received an HTML page instead of JSON (network, proxy, or cache). Try a hard refresh or another connection.');
-    }
-    if (response.ok && !String(raw || '').trim()) {
+    if (last.response?.ok && !String(last.raw || '').trim()) {
         throw new Error(
-            'Sign-in still returned an empty body. Try: (1) private/incognito window, (2) another browser, (3) the desktop app. If you use Cloudflare on buildprax.com, purge cache for paths hitting the auth API.',
+            'Sign-in still returned an empty body after retries. Try another network or browser; if you use Cloudflare or a cache in front of the auth API, purge cache for that endpoint.',
         );
     }
-    let payload = applyAuthTokenAliases(normalizeAuthApiEnvelope(parseAuthJsonResponse(raw)));
-    if (!response.ok) {
-        const msg = payload.message || payload.code || `Sign-in failed (${response.status}).`;
-        throw new Error(msg);
-    }
-    if (payload.confirmationRequired && payload.preAuthToken) {
-        throw new Error('This account needs licensed-device confirmation in the Buildprax Measure Pro desktop app. Website sign-in is not available for this step.');
-    }
-    if (payload.ok === false) {
-        const msg = payload.message || payload.code || 'Sign-in failed. Check your password or try again.';
-        throw new Error(msg);
-    }
-    if (!payload.accessToken) {
-        throw new Error('Sign-in response did not include a session token. Try a hard refresh (clear cache) or use the desktop app. If it persists, your network may be altering API responses.');
-    }
-    return payload;
+    throw new Error('Sign-in could not get a valid response from the auth service. Try again shortly or use the desktop app.');
 }
 
 async function fetchMembersEntitlement(accessToken) {
