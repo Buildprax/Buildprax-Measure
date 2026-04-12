@@ -37,6 +37,25 @@ function forwardHeaders(req) {
   return out
 }
 
+/**
+ * Ingress often strips the public route prefix (/api/auth) before the request hits this process.
+ * Browser: /api/auth/healthz  →  container may see /healthz
+ * Browser: /api/auth/auth/session  →  container may see /auth/session
+ */
+function normalizeIncomingPath(full) {
+  if (full.startsWith(`${PREFIX}/`) || full === PREFIX) return full
+  const qi = full.indexOf('?')
+  const pathOnly = qi >= 0 ? full.slice(0, qi) : full
+  const qs = qi >= 0 ? full.slice(qi) : ''
+  if (pathOnly === '/healthz' || pathOnly === '/healthz/') {
+    return `${PREFIX}/healthz${qs}`
+  }
+  if (pathOnly.startsWith('/auth')) {
+    return `${PREFIX}${pathOnly}${qs}`
+  }
+  return full
+}
+
 function buildTargetUrl(fullPathAndQuery) {
   let rest = fullPathAndQuery.slice(PREFIX.length) || '/'
   if (!rest.startsWith('/')) rest = `/${rest}`
@@ -54,7 +73,7 @@ function sendJson(res, status, body) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const full = String(req.url || '/').split('#')[0]
+  const full = normalizeIncomingPath(String(req.url || '/').split('#')[0])
 
   if (full === `${PREFIX}/healthz` || full.startsWith(`${PREFIX}/healthz?`)) {
     return sendJson(res, 200, { ok: true, proxy: true, prefix: PREFIX, upstream: UPSTREAM })
