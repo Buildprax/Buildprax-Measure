@@ -1195,7 +1195,8 @@ async function membersLogin(email, password) {
         if (isEmptySuccessHiccup(response, raw)) continue;
 
         if (String(raw || '').trimStart().startsWith('<')) {
-            throw new Error('Sign-in received an HTML page instead of JSON (network, proxy, or cache). Try a hard refresh or another connection.');
+            // Transient gateway/proxy pages are usually HTML. Treat them as retryable in-loop noise.
+            continue;
         }
 
         const payload = applyAuthTokenAliases(normalizeAuthApiEnvelope(parseAuthJsonResponse(raw)));
