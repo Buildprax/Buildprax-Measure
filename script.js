@@ -1180,7 +1180,8 @@ async function membersLogin(email, password) {
         return false;
     }
 
-    const pathCycle = ['/auth/session', '/auth/login', '/auth/session', '/auth/login'];
+    // Production currently supports /auth/login reliably; avoid /auth/session cache ghosts in browsers.
+    const pathCycle = ['/auth/login', '/auth/login', '/auth/login'];
     let last = { response: { status: 0 }, raw: '' };
 
     for (const pathBase of pathCycle) {
