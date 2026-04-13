@@ -3,7 +3,6 @@
  * Node 18+ only (fetch). No npm dependencies.
  */
 import http from 'http'
-import { Readable } from 'stream'
 
 const UPSTREAM = String(
   process.env.AUTH_API_UPSTREAM ||
@@ -92,6 +91,14 @@ function sendJson(req, res, status, body) {
   res.end(buf)
 }
 
+async function readRequestBody(req) {
+  const parts = []
+  for await (const chunk of req) {
+    parts.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return parts.length ? Buffer.concat(parts) : null
+}
+
 const server = http.createServer(async (req, res) => {
   const full = normalizeIncomingPath(String(req.url || '/').split('#')[0])
   const method = String(req.method || 'GET').toUpperCase()
@@ -117,15 +124,13 @@ const server = http.createServer(async (req, res) => {
   const hasBody = !['GET', 'HEAD'].includes(method)
 
   try {
+    const inboundBody = hasBody ? await readRequestBody(req) : null
     const init = {
       method,
       headers: forwardHeaders(req),
       redirect: 'manual',
     }
-    if (hasBody) {
-      init.body = Readable.toWeb(req)
-      init.duplex = 'half'
-    }
+    if (inboundBody && inboundBody.length > 0) init.body = inboundBody
 
     const upstream = await fetch(targetUrl, init)
     const buf = Buffer.from(await upstream.arrayBuffer())
