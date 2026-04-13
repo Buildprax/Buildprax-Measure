@@ -7,17 +7,8 @@ const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/f
 
 /** Same-origin proxy on live site removes cross-origin CORS/SW issues for browser sign-in. */
 function getAuthApiBase() {
-    if (typeof window === 'undefined') return AUTH_API_DIRECT;
-    try {
-        const h = String(window.location.hostname || '').toLowerCase();
-        // Always use apex for /api/auth: App Platform often routes the Web Service only for buildprax.com,
-        // so www.buildprax.com would otherwise hit the static site and return HTML for POST.
-        if (h === 'buildprax.com' || h === 'www.buildprax.com') {
-            return 'https://buildprax.com/api/auth';
-        }
-    } catch (_) {
-        /* ignore */
-    }
+    // Temporary hardening: bypass app proxy and hit auth function directly.
+    // The proxy path is intermittently timing out in production.
     return AUTH_API_DIRECT;
 }
 
