@@ -1079,7 +1079,9 @@ function renderMembersStatus(data) {
 }
 
 async function authApiFetch(pathSuffix, options = {}) {
-    const url = `${getAuthApiBase()}${pathSuffix}`;
+    const primaryBase = getAuthApiBase();
+    const bases = [primaryBase];
+    if (primaryBase !== AUTH_API_DIRECT) bases.push(AUTH_API_DIRECT);
     const merged = {
         cache: 'no-store',
         ...options,
@@ -1089,7 +1091,24 @@ async function authApiFetch(pathSuffix, options = {}) {
             ...(options.headers || {}),
         },
     };
-    return fetch(url, merged);
+    let lastNetworkError = null;
+    let lastResponse = null;
+    for (const base of bases) {
+        try {
+            const url = `${base}${pathSuffix}`;
+            const response = await fetch(url, merged);
+            // If proxy route is stale/broken, silently retry direct auth endpoint.
+            if (base !== AUTH_API_DIRECT && (response.status === 404 || response.status >= 500)) {
+                lastResponse = response;
+                continue;
+            }
+            return response;
+        } catch (err) {
+            lastNetworkError = err;
+        }
+    }
+    if (lastResponse) return lastResponse;
+    throw lastNetworkError || new Error('Auth network request failed.');
 }
 
 function parseAuthJsonResponse(raw) {
