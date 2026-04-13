@@ -1080,10 +1080,9 @@ function renderMembersStatus(data) {
 
 async function authApiFetch(pathSuffix, options = {}) {
     const primaryBase = getAuthApiBase();
-    const isProdWeb = typeof window !== 'undefined' && /^(www\.)?buildprax\.com$/i.test(window.location.hostname || '');
     const bases = [primaryBase];
-    // On production website, force the same ingress path only. Mixing proxy + direct reintroduces 204/cache ghosts.
-    if (!isProdWeb && primaryBase !== AUTH_API_DIRECT) bases.push(AUTH_API_DIRECT);
+    // Keep proxy as first choice, but always allow direct auth as final fallback.
+    if (primaryBase !== AUTH_API_DIRECT) bases.push(AUTH_API_DIRECT);
     const merged = {
         cache: 'no-store',
         ...options,
