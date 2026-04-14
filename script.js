@@ -7,8 +7,15 @@ const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/f
 
 /** Same-origin proxy on live site removes cross-origin CORS/SW issues for browser sign-in. */
 function getAuthApiBase() {
-    // Temporary hardening: bypass app proxy and hit auth function directly.
-    // The proxy path is intermittently timing out in production.
+    if (typeof window === 'undefined') return AUTH_API_DIRECT;
+    try {
+        const h = String(window.location.hostname || '').toLowerCase();
+        if (h === 'buildprax.com' || h === 'www.buildprax.com') {
+            return 'https://buildprax.com/api/auth';
+        }
+    } catch (_) {
+        /* ignore */
+    }
     return AUTH_API_DIRECT;
 }
 
@@ -1071,9 +1078,10 @@ function renderMembersStatus(data) {
 
 async function authApiFetch(pathSuffix, options = {}) {
     const primaryBase = getAuthApiBase();
+    const isProdWeb = typeof window !== 'undefined' && /^(www\.)?buildprax\.com$/i.test(window.location.hostname || '');
     const bases = [primaryBase];
-    // Keep proxy as first choice, but always allow direct auth as final fallback.
-    if (primaryBase !== AUTH_API_DIRECT) bases.push(AUTH_API_DIRECT);
+    // In production website, force proxy only to avoid direct endpoint 204 responses.
+    if (!isProdWeb && primaryBase !== AUTH_API_DIRECT) bases.push(AUTH_API_DIRECT);
     const merged = {
         cache: 'no-store',
         ...options,
