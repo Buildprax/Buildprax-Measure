@@ -3,7 +3,7 @@
 // you can switch this to '/api/send-email'.
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
 /** Direct DigitalOcean auth function (desktop apps, local file preview, non-production hosts). */
-const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
+const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api-v2';
 
 /** Same-origin proxy on live site removes cross-origin CORS/SW issues for browser sign-in. */
 function getAuthApiBase() {
