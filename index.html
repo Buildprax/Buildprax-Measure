@@ -31,7 +31,6 @@
                     <li><a href="#features">Features</a></li>
                     <li><a href="#download">Download</a></li>
                     <li><a href="#pricing">Pricing</a></li>
-                    <li><a href="#members">Members</a></li>
                     <li><a href="#support">Support</a></li>
                 </ul>
             </nav>
@@ -45,7 +44,6 @@
             <p class="hero-subtitle">Measure lengths, areas and counts from PDF drawings and link totals to Bills of Quantities and Estimates. All on one platform with the click of a button. Designed for Quantity Surveyors, Estimators and Property Developers.</p>
             <div class="hero-buttons">
                 <button onclick="scrollToDownload()" class="btn btn-large">Start 14-Day Trial</button>
-                <a href="#members" class="btn btn-large">Create Account / Members Login</a>
                 <a href="https://calendly.com/buildprax-support/30min" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-large">Book Live Demonstration</a>
             </div>
             <p style="margin-top: 1rem; color: #9ca3af; font-size: 0.9rem;">
@@ -365,70 +363,8 @@
                 <button onclick="scrollToDownload()" class="btn btn-secondary">Start 14-Day Trial</button>
                 <a href="https://calendly.com/buildprax-support/30min" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="margin-left: 0.5rem;">Book Live Demonstration</a>
                 <p style="font-size: 0.85rem; color: #6b7280; margin-top: 0.8rem;">
-                    During checkout you will create/sign in to your account. After successful payment, your subscription activates automatically and your license key is sent by email.
+                    After successful payment, your subscription activates automatically and your license key is sent by email. Sign in and account setup are managed inside the desktop app.
                 </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Members Section -->
-    <section id="members" class="support" style="background:#ffffff;">
-        <div class="support-content">
-            <h2>Members Area</h2>
-            <p style="max-width: 900px; margin: 0 auto 2rem; color: #475569;">
-                Sign in to check your account entitlement status, package, and period dates. This is the account used for app login and subscription access.
-            </p>
-            <div class="members-grid">
-                <div class="support-card" style="text-align:left;">
-                    <h3>Members account</h3>
-                    <div id="membersChoiceWrap">
-                        <div class="members-mode-btns">
-                            <button id="membersModeLoginBtn" type="button" class="btn btn-secondary">Sign In</button>
-                            <button id="membersModeSignupBtn" type="button" class="btn btn-secondary">Create Account</button>
-                        </div>
-                    </div>
-                    <div id="membersFormFieldsWrap" style="display:none;">
-                        <p id="membersFormStepHint" style="font-size:0.92rem;color:#334155;margin:0 0 1rem 0;"></p>
-                        <form id="membersLoginForm" novalidate>
-                            <div class="form-group" id="membersNameWrap" style="display:none;">
-                                <label for="membersName">Full Name</label>
-                                <input type="text" id="membersName" placeholder="Your full name" autocomplete="name">
-                            </div>
-                            <div class="form-group">
-                                <label for="membersEmail">Email address</label>
-                                <input type="email" id="membersEmail" placeholder="you@example.com" autocomplete="username">
-                            </div>
-                            <div class="form-group">
-                                <label for="membersPassword">Password</label>
-                                <input type="password" id="membersPassword" placeholder="Your password" autocomplete="current-password">
-                            </div>
-                            <div class="form-group" id="membersPasswordConfirmWrap" style="display:none;">
-                                <label for="membersPasswordConfirm">Confirm password</label>
-                                <input type="password" id="membersPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password">
-                            </div>
-                            <p id="membersInlineMessage" style="display:none; margin-bottom:10px; font-size:0.92rem;"></p>
-                            <button id="membersSubmitBtn" type="submit" class="btn" style="width:100%;">Continue</button>
-                        </form>
-                        <div class="members-secondary-actions" style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-                            <button id="membersForgotPasswordBtn" type="button" class="btn btn-secondary" style="padding:8px 12px;">Forgot password</button>
-                            <button id="membersResendVerifyBtn" type="button" class="btn btn-secondary" style="padding:8px 12px;">Resend verification email</button>
-                        </div>
-                        <button id="membersBackToChoiceBtn" type="button" class="btn btn-secondary" style="width:100%; margin-top:0.75rem;">Back</button>
-                        <p style="font-size:0.9rem;color:#6b7280;margin-top:1rem;">
-                            New accounts must verify email before first sign-in. Use <strong>Resend verification email</strong> if the message is slow or in junk mail.
-                        </p>
-                    </div>
-                </div>
-                <div class="support-card" style="text-align:left;">
-                    <h3>📄 Subscription Status</h3>
-                    <div id="membersStatusPanel" class="members-status-panel">
-                        <p style="color:#64748b;">Sign in to view your current entitlement.</p>
-                    </div>
-                    <div style="display:flex; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
-                        <button id="membersRefreshBtn" type="button" class="btn btn-secondary">Refresh Status</button>
-                        <button id="membersLogoutBtn" type="button" class="btn btn-secondary">Sign Out</button>
-                    </div>
-                </div>
             </div>
         </div>
     </section>
@@ -638,6 +574,6 @@
     
     <!-- IMPORTANT: Load PayPal SDK only once per page -->
     <script src="https://www.paypal.com/sdk/js?client-id=Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn&vault=true&intent=subscription"></script>
-    <script src="script.js?v=44"></script>
+    <script src="script.js?v=45"></script>
 </body>
 </html>
