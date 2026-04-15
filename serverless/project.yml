@@ -7,5 +7,3 @@ packages:
         limits:
           timeout: 10000
           memory: 256
-
-
