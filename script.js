@@ -1314,7 +1314,13 @@ function initializeMembersArea() {
     const choiceWrap = document.getElementById('membersChoiceWrap');
     const formFieldsWrap = document.getElementById('membersFormFieldsWrap');
     const formStepHint = document.getElementById('membersFormStepHint');
-    if (!loginForm) return;
+    if (!loginForm) {
+        processMembersUrlActions((text, kind = 'error') => {
+            if (typeof showMessage === 'function') showMessage(text, kind);
+            else if (kind === 'error') window.alert(text);
+        }).catch(() => {});
+        return;
+    }
     let membersMode = 'login';
     /** 'choice' = only Sign In / Create Account buttons; 'form' = email/password step */
     let membersPhase = 'choice';
