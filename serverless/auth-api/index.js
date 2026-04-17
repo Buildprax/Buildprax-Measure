@@ -108,9 +108,13 @@ function basePath(args) {
   if (hm >= 0) p = p.slice(0, hm)
   // Prefer the /auth/... segment so we never match the "auth" inside "auth-api".
   const authRoute = p.indexOf('/auth/')
-  if (authRoute >= 0) return p.slice(authRoute)
-  const idx = p.indexOf('/auth')
-  return idx >= 0 ? p.slice(idx) : p
+  if (authRoute >= 0) p = p.slice(authRoute)
+  else {
+    const idx = p.indexOf('/auth')
+    p = idx >= 0 ? p.slice(idx) : p
+  }
+  while (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1)
+  return p
 }
 
 /** Query token for GET verify-email-link (DO Functions may put query on path, top-level args, or __ow_query). */
@@ -281,7 +285,7 @@ async function createAndSendVerificationToken(userId, email) {
 }
 
 async function sendPasswordResetEmail(email, token) {
-  const resetUrl = `${appBaseUrl()}/?reset=${encodeURIComponent(token)}#members`
+  const resetUrl = `${appBaseUrl()}/?reset=${encodeURIComponent(token)}`
   const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com'
   await sendGridEmail({
     personalizations: [{ to: [{ email }], subject: 'Reset your Buildprax password' }],
@@ -712,10 +716,9 @@ export async function main(args) {
     if (method === 'GET' && p.endsWith('/auth/verify-email-link')) {
       const token = extractVerificationToken(args)
       const result = await verifyEmailByTokenString(token)
-      // Put ?verified= before # so window.location.search works; keep hash for Members section.
       const target = result.ok
-        ? `${appBaseUrl()}/?verified=1#members`
-        : `${appBaseUrl()}/?verified=0&reason=${encodeURIComponent(result.message || 'Verification failed')}#members`
+        ? `${appBaseUrl()}/?verified=1`
+        : `${appBaseUrl()}/?verified=0&reason=${encodeURIComponent(result.message || 'Verification failed')}`
       return {
         statusCode: 302,
         headers: { Location: target, 'Cache-Control': 'no-store' },
