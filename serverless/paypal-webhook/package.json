@@ -1,9 +1,0 @@
-{
-  "name": "buildprax-paypal-webhook",
-  "version": "1.0.0",
-  "private": true,
-  "main": "index.js",
-  "dependencies": {
-    "@sendgrid/mail": "^8.1.0"
-  }
-}
