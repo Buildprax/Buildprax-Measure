@@ -2,7 +2,22 @@ packages:
   - name: default
     functions:
       - name: auth-api
-        runtime: nodejs:22
+        main: index.js
+        runtime: nodejs:18
+        web: true
+        limits:
+          timeout: 10000
+          memory: 256
+      - name: paypal-webhook
+        main: index.js
+        runtime: nodejs:18
+        web: true
+        limits:
+          timeout: 10000
+          memory: 256
+      - name: send-email
+        main: index.js
+        runtime: nodejs:18
         web: true
         limits:
           timeout: 10000
