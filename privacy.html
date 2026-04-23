@@ -49,7 +49,7 @@
 <body>
     <div class="privacy-content">
         <h1>Privacy Policy</h1>
-        <p><strong>Last Updated:</strong> April 2026 (Login &amp; Account Update)</p>
+        <p><strong>Last Updated:</strong> April 2026 (Login, Device Trial, and Subscription Update)</p>
         
         <h2>1. Introduction</h2>
         <p>
@@ -71,6 +71,8 @@
                 for account access, license management, support, and service security.</li>
             <li><strong>Email Verification and Session Data:</strong> We use email verification and session data to confirm account ownership,
                 activate trial access, maintain signed-in status (including "stay logged in" choices), and enforce period end and grace rules.</li>
+            <li><strong>Device and License Data:</strong> For desktop app sign-in and licensing controls, we process a device fingerprint
+                and device label provided by the application. This supports one-device paid licensing, device-bound trial controls, and fraud prevention.</li>
             <li><strong>Payment Information:</strong> All subscription payments are processed securely through PayPal. 
                 We do not store credit card information. PayPal handles all payment data according to their privacy 
                 policy and PCI-DSS compliance standards.</li>
@@ -91,6 +93,7 @@
             <li>Manage trial periods</li>
             <li>Validate subscription licenses</li>
             <li>Prevent duplicate or unauthorized activations</li>
+            <li>Apply one-device paid account controls and authorized device reassignment support</li>
         </ul>
         <p>
             Fingerprinting and license data are handled with strict purpose limitation and are retained only as long as
@@ -115,8 +118,34 @@
             All project data, measurements, and drawings are stored locally on your device. We do not have access 
             to your project files or measurement data unless you explicitly share them with us for support purposes.
         </p>
+        <p>
+            Account, login, verification, subscription, and licensing records are stored in our backend systems to operate authentication,
+            trial/subscription access control, security checks, and customer support.
+        </p>
+
+        <h2>4. How Login and Access Control Works</h2>
+        <p>
+            Buildprax account access is controlled through account verification, secure sign-in, and license/trial checks.
+            We use this flow to protect customer accounts and enforce fair trial and subscription use.
+        </p>
+        <ul>
+            <li><strong>Account creation and verification:</strong> users create an account with email/password and verify email ownership.</li>
+            <li><strong>Desktop sign-in:</strong> the app sends login credentials and device identity to the backend over encrypted transport.</li>
+            <li><strong>Trial control:</strong> trial access is managed by backend policy, including device-based controls for desktop clients.</li>
+            <li><strong>Paid access:</strong> paid subscriptions are validated against subscription status and device assignment rules.</li>
+            <li><strong>Device mismatch protection:</strong> if a paid subscription is already assigned to another device, login may be blocked until reassignment is authorized by support.</li>
+            <li><strong>Password reset:</strong> reset links are emailed to account owners and are time-limited. Successful reset updates account credentials and may confirm email ownership.</li>
+            <li><strong>Session handling:</strong> access/refresh tokens and related session metadata are used to keep users signed in according to policy and security limits.</li>
+        </ul>
+
+        <h2>5. Offline and Cached Access Behavior</h2>
+        <p>
+            When the app is temporarily offline, it may rely on the last successfully verified entitlement snapshot
+            (for example, valid paid/grace access period) to avoid unnecessary disruption.
+            The app does not grant indefinite offline access and still enforces period end rules.
+        </p>
         
-        <h2>4. Data Usage</h2>
+        <h2>6. Data Usage</h2>
         <p>We use the information we collect to:</p>
         <ul>
             <li>Provide and maintain the Service</li>
@@ -124,11 +153,12 @@
             <li>Send you welcome emails and product updates</li>
             <li>Process subscription payments through PayPal</li>
             <li>Calculate and apply subscription period validity, grace periods, renewals, and upgrades</li>
+            <li>Apply trial, licensing, and authorized-device access controls</li>
             <li>Respond to support requests</li>
             <li>Improve our Service</li>
         </ul>
         
-        <h2>5. Third-Party Services</h2>
+        <h2>7. Third-Party Services</h2>
         <p>
             Our Service uses the following third-party services that may collect information:
         </p>
@@ -141,13 +171,20 @@
                 This data is anonymized and aggregated.</li>
         </ul>
         
-        <h2>6. Data Security</h2>
+        <h2>8. Data Security</h2>
         <p>
             We implement appropriate technical and organizational measures to protect your personal information. 
             However, no method of transmission over the Internet or electronic storage is 100% secure.
         </p>
         
-        <h2>7. Your Rights</h2>
+        <h2>9. Data Retention</h2>
+        <p>
+            We retain account, session, subscription, verification, and licensing records for as long as needed to provide the Service,
+            enforce licensing/trial rules, prevent abuse, comply with legal obligations, resolve disputes, and support customer requests.
+            Project content remains local to your device unless you explicitly share it.
+        </p>
+
+        <h2>10. Your Rights</h2>
         <p>You have the right to:</p>
         <ul>
             <li>Access your personal data</li>
@@ -159,19 +196,19 @@
             To exercise these rights, please contact us at <a href="mailto:support@buildprax.com">support@buildprax.com</a>.
         </p>
         
-        <h2>8. Children's Privacy</h2>
+        <h2>11. Children's Privacy</h2>
         <p>
             Our Service is not intended for children under 13 years of age. We do not knowingly collect personal 
             information from children under 13.
         </p>
         
-        <h2>9. Changes to This Privacy Policy</h2>
+        <h2>12. Changes to This Privacy Policy</h2>
         <p>
             We may update our Privacy Policy from time to time. We will notify you of any changes by posting the 
             new Privacy Policy on this page and updating the "Last Updated" date.
         </p>
         
-        <h2>10. Contact Us</h2>
+        <h2>13. Contact Us</h2>
         <p>
             If you have any questions about this Privacy Policy, please contact us:
         </p>
