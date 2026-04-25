@@ -640,12 +640,12 @@ function startDownload() {
     
     if (platform === 'mac') {
         // Updated to latest notarized/stapled release
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.10.0.dmg';
-        filename = 'BuildpraxMeasurePro_1.0.10.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.11.0.dmg';
+        filename = 'BuildpraxMeasurePro_1.0.11.0.dmg';
     } else {
         // Default to Mac
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.10.0.dmg';
-        filename = 'BuildpraxMeasurePro_1.0.10.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.11.0.dmg';
+        filename = 'BuildpraxMeasurePro_1.0.11.0.dmg';
     }
     
     console.log('Download link:', downloadLink);
