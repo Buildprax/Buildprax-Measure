@@ -547,9 +547,35 @@ function downloadForPlatform(platform) {
     }
 }
 
+// Returning customers skip registration and download immediately.
+function downloadReturningCustomer(platform) {
+    try {
+        if (platform !== 'windows' && platform !== 'mac') {
+            console.error('Invalid platform for returning customer download:', platform);
+            showMessage('Invalid platform selected. Please try again.', 'error');
+            return;
+        }
+
+        if (typeof Storage !== 'undefined') {
+            localStorage.setItem('selectedPlatform', platform);
+            console.log('Returning customer platform stored:', platform);
+        } else {
+            console.error('localStorage not available');
+            showMessage('Your browser does not support local storage. Please update your browser.', 'error');
+            return;
+        }
+
+        startDownload();
+    } catch (error) {
+        console.error('Error in downloadReturningCustomer:', error);
+        showMessage('An error occurred. Please try again.', 'error');
+    }
+}
+
 // Make sure functions are available globally
 window.scrollToDownload = scrollToDownload;
 window.downloadForPlatform = downloadForPlatform;
+window.downloadReturningCustomer = downloadReturningCustomer;
 
 // Start Download Function (called after registration form submission)
 function startDownload() {
@@ -640,12 +666,12 @@ function startDownload() {
     
     if (platform === 'mac') {
         // Updated to latest notarized/stapled release
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.11.0.dmg';
-        filename = 'BuildpraxMeasurePro_1.0.11.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.12.0.dmg';
+        filename = 'BuildpraxMeasurePro_1.0.12.0.dmg';
     } else {
         // Default to Mac
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.11.0.dmg';
-        filename = 'BuildpraxMeasurePro_1.0.11.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.12.0.dmg';
+        filename = 'BuildpraxMeasurePro_1.0.12.0.dmg';
     }
     
     console.log('Download link:', downloadLink);

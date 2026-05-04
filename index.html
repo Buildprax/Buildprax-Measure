@@ -297,10 +297,16 @@
                         Now available on Windows: Measurement module, Bills of Quantities, Certificates, and Estimates &amp; Feasibilities.
                     </p>
                     <p style="font-size: 0.9rem; color: #10b981; margin: 0.5rem 0;">✓ 14-day time-limited trial</p>
-                    <button onclick="downloadForPlatform('windows')" class="btn" style="display: inline-block; margin: 1rem 0; padding: 12px 24px; background: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600;">
-                        Download for Windows (Microsoft Store)
+                    <button onclick="downloadForPlatform('windows')" class="btn" style="display: inline-block; margin: 1rem 0 0.5rem; padding: 12px 24px; background: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600;">
+                        First-Time Download (Windows)
+                    </button>
+                    <button onclick="downloadReturningCustomer('windows')" class="btn" style="display: inline-block; margin: 0.25rem 0 1rem; padding: 11px 20px; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: 600;">
+                        Returning Customer (Windows)
                     </button>
                     <small>Windows 10/11 • Secure download from Microsoft Store</small>
+                    <p style="font-size: 0.82rem; color: #64748b; margin-top: 0.5rem;">
+                        Returning customers skip the form and go directly to download.
+                    </p>
                     <p style="font-size: 0.85rem; color: #6b7280; margin-top: 0.5rem;">
                         Subscriptions activated automatically after purchase via <a href="#pricing" style="color: #065F46;">BuildPrax.com</a>
                     </p>
@@ -310,10 +316,16 @@
                     <h3>🍎 macOS</h3>
                     <p>Compatible with macOS 10.15+</p>
                     <p style="font-size: 0.9rem; color: #10b981; margin: 0.5rem 0;">✓ 14-day time-limited trial</p>
-                    <button onclick="downloadForPlatform('mac')" class="btn">
-                        Download for macOS
+                    <button onclick="downloadForPlatform('mac')" class="btn" style="margin-bottom: 0.5rem;">
+                        First-Time Download (macOS)
+                    </button>
+                    <button onclick="downloadReturningCustomer('mac')" class="btn" style="display: inline-block; margin: 0.25rem 0 1rem; padding: 11px 20px; background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: 600;">
+                        Returning Customer (macOS)
                     </button>
                     <small>Hosted on DigitalOcean • Apple Silicon (M1/M2/M3) • Notarized by Apple</small>
+                    <p style="font-size: 0.82rem; color: #64748b; margin-top: 0.5rem;">
+                        Returning customers skip the form and download directly.
+                    </p>
                 </div>
             </div>
 
@@ -484,7 +496,7 @@
                 </div>
                 
                 <input type="hidden" name="formType" value="trial_registration">
-                <input type="hidden" name="downloadUrl" value="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.11.0.dmg">
+                <input type="hidden" name="downloadUrl" value="https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_1.0.12.0.dmg">
                 
                 <button type="submit" class="btn btn-primary">Start Download</button>
             </form>
