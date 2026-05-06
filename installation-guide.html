@@ -121,38 +121,68 @@
 <body>
     <div class="container">
         <h1>BUILDPRAX MEASURE PRO</h1>
-        <p style="font-size: 1.2em; color: #6b7280; margin-bottom: 30px;">Installation Guide (Windows &amp; macOS)</p>
+        <p style="font-size: 1.2em; color: #6b7280; margin-bottom: 30px;">Installation Guide for macOS</p>
 
-        <div class="success">
-            <strong>✅ Approved software:</strong> Windows installs from the Microsoft Store. macOS downloads are Apple-signed and notarized (approved by Apple).
+        <div class="warning">
+            <strong>⚠️ Important:</strong> If you see "app is damaged" after downloading, this is normal macOS security behavior. Follow the steps below to fix it.
         </div>
 
-        <h2>Windows (Microsoft Store)</h2>
-        <div class="step">
-            <h3>Step 1: Install from the Microsoft Store</h3>
-            <p>On Windows 10/11, install BUILDPRAX MEASURE PRO from the Microsoft Store, then launch it from the Start Menu.</p>
-        </div>
-
-        <h2>macOS (Recommended)</h2>
+        <h2>Quick Installation (Recommended)</h2>
         
         <div class="step">
             <h3>Step 1: Download and Open</h3>
-            <p>After downloading, locate the <code>BUILDPRAX MEASURE PRO</code> <code>.dmg</code> file in your Downloads folder (the filename may include a version number).</p>
+            <p>After downloading, locate the <code>BuildpraxMeasurePro_2.0.1.0.dmg</code> file in your Downloads folder.</p>
         </div>
 
         <div class="step">
-            <h3>Step 2: Mount and Install</h3>
+            <h3>Step 2: Remove Security Quarantine</h3>
+            <p>Open <strong>Terminal</strong> (Press ⌘ + Space, type "Terminal", press Enter) and run:</p>
+            <pre><code>sudo xattr -d com.apple.quarantine ~/Downloads/"BuildpraxMeasurePro_2.0.1.0.dmg"</code></pre>
+            <p><strong>Note:</strong> You'll be asked for your computer password (it won't show as you type - this is normal). Press Enter after typing your password.</p>
+            <p>If you see "Operation not permitted" without sudo, the command above with <code>sudo</code> should fix it.</p>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Mount and Install</h3>
             <p>Double-click the DMG file to mount it, then drag <strong>"BUILDPRAX MEASURE PRO"</strong> to your <strong>Applications</strong> folder.</p>
         </div>
 
         <div class="step">
-            <h3>Step 3: Launch the App</h3>
+            <h3>Step 4: Remove App Quarantine</h3>
+            <p>In Terminal, run:</p>
+            <pre><code>sudo xattr -d com.apple.quarantine "/Applications/BUILDPRAX MEASURE PRO.app"</code></pre>
+            <p><strong>Note:</strong> Enter your password when prompted.</p>
+        </div>
+
+        <div class="step">
+            <h3>Step 5: Launch the App</h3>
             <p>Find "BUILDPRAX MEASURE PRO" in your Applications folder and double-click to launch.</p>
+            <p><strong>First Launch:</strong> If you see "Developer cannot be verified", right-click the app and select <strong>"Open"</strong>, then click "Open" in the security dialog.</p>
         </div>
 
         <div class="success">
-            <strong>✅ Success!</strong> The app should now open normally.
+            <strong>✅ Success!</strong> The app should now open normally. You'll only need to do this once.
         </div>
+
+        <h2>Troubleshooting</h2>
+
+        <h3>"App is damaged and should be moved to the Trash"</h3>
+        <p>This is a macOS security message. Follow Steps 2 and 4 above to remove quarantine flags.</p>
+
+        <h3>"Developer cannot be verified"</h3>
+        <p>Right-click the app in Applications → Select <strong>"Open"</strong> → Click <strong>"Open"</strong> in the dialog. This only needs to be done once.</p>
+
+        <h3>"Operation not permitted" Error</h3>
+        <p>If you see "Operation not permitted", you need administrator privileges. Use <code>sudo</code> before the command (you'll be asked for your password):</p>
+            <pre><code>sudo xattr -d com.apple.quarantine ~/Downloads/"BuildpraxMeasurePro_2.0.1.0.dmg"</code></pre>
+        <p><strong>Important:</strong> When you type your password, nothing will appear on screen - this is normal macOS security behavior. Just type your password and press Enter.</p>
+        <p><strong>Alternative method:</strong> If you prefer not to use Terminal, you can:</p>
+        <ol>
+            <li>Control-click (right-click) the DMG file</li>
+            <li>Select "Open"</li>
+            <li>Click "Open" when the security warning appears</li>
+            <li>Then drag the app to Applications and right-click the app → "Open" when launching</li>
+        </ol>
 
         <h2>System Requirements</h2>
         <ul>
