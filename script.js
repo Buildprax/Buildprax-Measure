@@ -884,7 +884,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Card payment is now handled by PayPal SDK - no separate function needed
 
-// Send License Key Function - Updated with customer number, subscription type, and multiple licenses
+// Send subscription confirmation and support audit.
 function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0, totalLicenses = 1, packageCode = 'quartz') {
     // Get or create customer number ONLY when subscription is purchased
     // Customer numbers are NOT assigned for trial downloads, only for paid subscriptions
@@ -1002,12 +1002,12 @@ function getCustomerNumber(email) {
     // Start from 102 (101 is reserved for Cathal)
     const existingNumbers = Object.values(customerNumbers);
     let num = 102;
-    while (existingNumbers.includes(`BMP${String(num).padStart(5, '0')}`)) {
+    while (existingNumbers.includes(`BMP${String(num).padStart(6, '0')}`)) {
         num++;
         if (num > 99999) num = 102; // Reset if we hit the limit
     }
     
-    const customerNumber = `BMP${String(num).padStart(5, '0')}`;
+    const customerNumber = `BMP${String(num).padStart(6, '0')}`;
     customerNumbers[normalizedEmail] = customerNumber;
     localStorage.setItem('customerNumbers', JSON.stringify(customerNumbers));
     console.log('Generated new customer number for subscription purchase:', normalizedEmail, customerNumber);
@@ -1450,11 +1450,21 @@ function initializeMembersArea() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password, name })
                 });
-                showInlineMessage('Account created. Check your email to verify your account before signing in.', 'success');
-                showMessage('Account created. Check your email to verify your account before signing in.', 'success');
+
+                const verificationEmailSent = signupPayload?.verificationEmailSent !== false;
+                if (verificationEmailSent) {
+                    showInlineMessage('Account created. Please verify your email from the message we sent, then sign in.', 'success');
+                    showMessage('Account created. Please verify your email from the message we sent, then sign in.', 'success');
+                } else {
+                    showInlineMessage('Account created, but we could not send the verification email right now. Please click Resend verification email.', 'error');
+                    showMessage('Account created, but verification email delivery failed. Please use Resend verification email.', 'error');
+                }
+
                 if (passwordInput) passwordInput.value = '';
                 if (passwordConfirmInput) passwordConfirmInput.value = '';
                 if (nameInput) nameInput.value = '';
+                // After signup, move user into sign-in mode so the primary button is always correct.
+                if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
                 // Never chain login in the same submit — new accounts are unverified until link or password-reset completes.
                 if (signupPayload?.emailVerified !== true) {
                     return;
@@ -1527,8 +1537,10 @@ function initializeMembersArea() {
                 });
                 if (payload?.alreadyVerified) {
                     showInlineMessage('This account is already verified. You can sign in.', 'success');
+                    if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
                 } else {
                     showInlineMessage('If this email is registered and needs verification, we sent a new message. Check junk mail.', 'success');
+                    if (typeof window.setMembersMode === 'function') window.setMembersMode('login');
                 }
             } catch (error) {
                 showInlineMessage(error.message || 'Could not resend verification email.');
