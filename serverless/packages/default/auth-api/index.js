@@ -1,8 +1,8 @@
-import crypto from 'crypto'
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import { Pool } from 'pg'
-import https from 'https'
+const crypto = require('crypto')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const { Pool } = require('pg')
+const https = require('https')
 
 const TRIAL_DAYS = 14
 const GRACE_DAYS = 2
@@ -264,14 +264,42 @@ function sendGridEmail(payload) {
 async function sendVerificationEmail(email, token) {
   const verifyUrl = `${AUTH_API_PUBLIC_BASE}/auth/verify-email-link?token=${encodeURIComponent(token)}`
   const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com'
+  const textBody = [
+    'Hello,',
+    '',
+    'Welcome to Buildprax.',
+    '',
+    `Please verify your account by clicking this link: ${verifyUrl}`,
+    '',
+    'If you experience any problems, please contact support.',
+    '',
+    'Buildprax Support',
+    'support@buildprax.com',
+  ].join('\n')
+  const htmlBody = `
+    <div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+      <p>Hello,</p>
+      <p>Welcome to Buildprax.</p>
+      <p>
+        Please verify your account by clicking
+        <a href="${verifyUrl}">this link</a>.
+      </p>
+      <p>If you experience any problems, please contact support.</p>
+      <p>Buildprax Support<br>support@buildprax.com</p>
+    </div>
+  `
   await sendGridEmail({
     personalizations: [{ to: [{ email }], subject: 'Verify your Buildprax account' }],
     from: { email: fromEmail },
     categories: ['transactional', 'buildprax-account', 'email-verification'],
     content: [
-      { type: 'text/plain', value: `Please verify your account by opening this link:\n${verifyUrl}` },
-      { type: 'text/html', value: `<p>Please verify your account:</p><p><a href="${verifyUrl}">Verify account</a></p>` },
+      { type: 'text/plain', value: textBody },
+      { type: 'text/html', value: htmlBody },
     ],
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+    },
   })
 }
 
@@ -291,10 +319,7 @@ async function sendPasswordResetEmail(email, token) {
     personalizations: [{ to: [{ email }], subject: 'Reset your Buildprax password' }],
     from: { email: fromEmail },
     categories: ['transactional', 'buildprax-account', 'password-reset'],
-    content: [
-      { type: 'text/plain', value: `Reset your password by opening this link:\n${resetUrl}` },
-      { type: 'text/html', value: `<p>Reset your password:</p><p><a href="${resetUrl}">Reset password</a></p>` },
-    ],
+    content: [{ type: 'text/plain', value: `Reset your password by opening this link:\n${resetUrl}` }],
   })
 }
 
@@ -305,7 +330,7 @@ async function getEntitlementStateForUser(userId, trialStartedAt) {
      join subscription_plans sp on sp.id = s.plan_id
      join packages p on p.id = sp.package_id
      where s.user_id = $1 and lower(s.status) = 'active'
-     order by s.updated_at desc
+     order by s.current_period_end desc nulls last, s.updated_at desc
      limit 1`,
     [userId],
   )
@@ -642,7 +667,7 @@ async function entitlement(userId) {
      join subscription_plans sp on sp.id = s.plan_id
      join packages p on p.id = sp.package_id
      where s.user_id = $1 and lower(s.status) = 'active'
-     order by s.updated_at desc
+     order by s.current_period_end desc nulls last, s.updated_at desc
      limit 1`,
     [userId],
   )
@@ -697,7 +722,7 @@ async function authUser(args) {
   }
 }
 
-export async function main(args) {
+async function main(args) {
   try {
     if (args.http?.method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders, body: '' }
     await ensureSchema()
@@ -717,8 +742,8 @@ export async function main(args) {
       const token = extractVerificationToken(args)
       const result = await verifyEmailByTokenString(token)
       const target = result.ok
-        ? `${appBaseUrl()}/?verified=1`
-        : `${appBaseUrl()}/?verified=0&reason=${encodeURIComponent(result.message || 'Verification failed')}`
+        ? `${appBaseUrl()}/account-verified.html?status=success`
+        : `${appBaseUrl()}/account-verified.html?status=error&reason=${encodeURIComponent(result.message || 'Verification failed')}`
       return {
         statusCode: 302,
         headers: { Location: target, 'Cache-Control': 'no-store' },
@@ -746,5 +771,7 @@ export async function main(args) {
     })
   }
 }
+
+module.exports.main = main
 
 // force redeploy Sat 11 Apr 2026 — basePath strips ?query so POST /auth/session?cb= matches
