@@ -405,6 +405,27 @@ async function signup(body) {
     })
   } catch (e) {
     if (String(e.message).includes('duplicate key')) {
+      const existing = await pool.query(
+        `select id, email, coalesce(email_verified,false) as email_verified from app_users where email = $1 limit 1`,
+        [email],
+      )
+      if (existing.rowCount && !isEmailVerifiedValue(existing.rows[0].email_verified)) {
+        let verificationEmailSent = true
+        try {
+          await createAndSendVerificationToken(existing.rows[0].id, existing.rows[0].email)
+        } catch {
+          verificationEmailSent = false
+        }
+        return json(200, {
+          ok: true,
+          emailVerified: false,
+          requiresEmailVerification: true,
+          verificationEmailSent,
+          message: verificationEmailSent
+            ? 'Account already exists and is not verified. A new verification email has been sent.'
+            : 'Account already exists and is not verified. Verification email could not be sent right now.',
+        })
+      }
       return json(409, { ok: false, code: 'EMAIL_EXISTS', message: 'Email already exists.' })
     }
     return json(500, { ok: false, code: 'SERVER_ERROR', message: 'Signup failed.' })
