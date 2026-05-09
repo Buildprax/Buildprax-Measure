@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Verification | Buildprax</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="assets/logo.png" alt="Buildprax Logo">
+                <div class="logo-text">
+                    <h1>BUILDPRAX MEASURE PRO</h1>
+                    <p>Account Verification</p>
+                </div>
+            </div>
+            <nav class="nav">
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="index.html#download">Download</a></li>
+                    <li><a href="mailto:support@buildprax.com">Support</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="seo-section" style="padding-top: 7rem;">
+        <div class="seo-content" style="max-width: 840px;">
+            <div class="seo-card" style="padding: 1.75rem;">
+                <h2 id="verifyHeading">Account verification status</h2>
+                <p id="verifyMessage">
+                    We are checking your verification result.
+                </p>
+                <div class="seo-cta-row">
+                    <a href="index.html#download" class="btn">Download Buildprax</a>
+                    <a href="mailto:support@buildprax.com" class="btn btn-secondary">Contact Support</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        (function () {
+            var params = new URLSearchParams(window.location.search || '');
+            var status = params.get('status');
+            var reason = params.get('reason');
+            var headingEl = document.getElementById('verifyHeading');
+            var messageEl = document.getElementById('verifyMessage');
+            if (!headingEl || !messageEl) return;
+
+            if (status === 'success') {
+                headingEl.textContent = 'Account verified';
+                messageEl.textContent = 'Your account is verified. Please log in with the same email and password in the Buildprax app.';
+                return;
+            }
+
+            headingEl.textContent = 'Verification not completed';
+            messageEl.textContent = reason
+                ? 'We could not verify your account: ' + reason + '. Please try again or contact support.'
+                : 'We could not verify your account. Please try again or contact support.';
+        })();
+    </script>
+</body>
+</html>
