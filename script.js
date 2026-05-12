@@ -666,12 +666,12 @@ function startDownload() {
     
     if (platform === 'mac') {
         // Updated to latest notarized/stapled release
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_2.0.1.0.dmg';
-        filename = 'BuildpraxMeasurePro_2.0.1.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_2.0.3.0.dmg';
+        filename = 'BuildpraxMeasurePro_2.0.3.0.dmg';
     } else {
         // Default to Mac
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_2.0.1.0.dmg';
-        filename = 'BuildpraxMeasurePro_2.0.1.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_2.0.3.0.dmg';
+        filename = 'BuildpraxMeasurePro_2.0.3.0.dmg';
     }
     
     console.log('Download link:', downloadLink);
@@ -1451,13 +1451,23 @@ function initializeMembersArea() {
                     body: JSON.stringify({ email, password, name })
                 });
 
-                const verificationEmailSent = signupPayload?.verificationEmailSent !== false;
-                if (verificationEmailSent) {
+                const emailConfirmedSent =
+                    signupPayload?.ok === true && signupPayload?.verificationEmailSent === true;
+                if (emailConfirmedSent) {
                     showInlineMessage('Account created. Please verify your email from the message we sent, then sign in.', 'success');
                     showMessage('Account created. Please verify your email from the message we sent, then sign in.', 'success');
-                } else {
+                } else if (signupPayload?.verificationEmailSent === false) {
                     showInlineMessage('Account created, but we could not send the verification email right now. Please click Resend verification email.', 'error');
                     showMessage('Account created, but verification email delivery failed. Please use Resend verification email.', 'error');
+                } else {
+                    showInlineMessage(
+                        'Account was recorded. We could not confirm that a verification email was sent. Check spam, wait a few minutes, then use Resend verification email on sign-in.',
+                        'error'
+                    );
+                    showMessage(
+                        'Account was recorded. If you see no email, use Resend verification email after signing in with your password, or contact support@buildprax.com.',
+                        'error'
+                    );
                 }
 
                 if (passwordInput) passwordInput.value = '';
