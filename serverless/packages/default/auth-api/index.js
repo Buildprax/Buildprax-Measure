@@ -641,9 +641,17 @@ async function requestPasswordReset(body) {
     `insert into password_reset_tokens (user_id, token_hash, expires_at) values ($1,$2,$3)`,
     [user.id, hashToken(token), addHours(new Date(), RESET_TOKEN_HOURS).toISOString()],
   )
-  await sendPasswordResetEmail(user.email, token).catch((sendErr) => {
+  try {
+    await sendPasswordResetEmail(user.email, token)
+  } catch (sendErr) {
     console.error('[auth-api] password reset email failed', email, String(sendErr?.message || sendErr))
-  })
+    return json(500, {
+      ok: false,
+      code: 'EMAIL_SEND_FAILED',
+      message:
+        'Could not send the password reset email right now. Please try again in a few minutes or contact support@buildprax.com.',
+    })
+  }
   return json(200, { ok: true })
 }
 
