@@ -1,8 +1,8 @@
-const crypto = require('crypto')
-const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
-const { Pool } = require('pg')
-const https = require('https')
+import crypto from 'crypto'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import { Pool } from 'pg'
+import https from 'https'
 
 const TRIAL_DAYS = 14
 const GRACE_DAYS = 2
@@ -290,7 +290,8 @@ async function sendVerificationEmail(email, token) {
   `
   await sendGridEmail({
     personalizations: [{ to: [{ email }], subject: 'Verify your Buildprax account' }],
-    from: { email: fromEmail },
+    from: { email: fromEmail, name: 'Buildprax' },
+    reply_to: { email: 'support@buildprax.com', name: 'Buildprax Support' },
     categories: ['transactional', 'buildprax-account', 'email-verification'],
     content: [
       { type: 'text/plain', value: textBody },
@@ -317,7 +318,8 @@ async function sendPasswordResetEmail(email, token) {
   const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com'
   await sendGridEmail({
     personalizations: [{ to: [{ email }], subject: 'Reset your Buildprax password' }],
-    from: { email: fromEmail },
+    from: { email: fromEmail, name: 'Buildprax' },
+    reply_to: { email: 'support@buildprax.com', name: 'Buildprax Support' },
     categories: ['transactional', 'buildprax-account', 'password-reset'],
     content: [{ type: 'text/plain', value: `Reset your password by opening this link:\n${resetUrl}` }],
   })
@@ -382,6 +384,15 @@ async function signup(body) {
   if (!email || !email.includes('@') || password.length < 6) {
     return json(400, { ok: false, code: 'INVALID_INPUT', message: 'Invalid signup payload.' })
   }
+  if (!String(process.env.SENDGRID_API_KEY || '').trim()) {
+    console.error('[auth-api] SENDGRID_API_KEY is not set — cannot send verification email')
+    return json(503, {
+      ok: false,
+      code: 'EMAIL_SERVICE_UNAVAILABLE',
+      message:
+        'Sign up is temporarily unavailable because email is not configured on the server. Please try again later or contact support@buildprax.com.',
+    })
+  }
   const passHash = await bcrypt.hash(password, 10)
   try {
     const r = await pool.query(
@@ -390,18 +401,29 @@ async function signup(body) {
        returning id`,
       [email, passHash, name || null],
     )
-    let verificationEmailSent = true
+    const newUserId = r.rows[0].id
     try {
-      await createAndSendVerificationToken(r.rows[0].id, email)
-    } catch {
-      verificationEmailSent = false
+      await createAndSendVerificationToken(newUserId, email)
+    } catch (sendErr) {
+      console.error('[auth-api] signup verification email failed', email, String(sendErr?.message || sendErr))
+      try {
+        await pool.query(`delete from app_users where id = $1`, [newUserId])
+      } catch (delErr) {
+        console.error('[auth-api] rollback new user after email failure failed', String(delErr?.message || delErr))
+      }
+      return json(503, {
+        ok: false,
+        code: 'VERIFICATION_EMAIL_FAILED',
+        message:
+          'We could not send the verification email, so your account was not kept. Try again in a few minutes, check that your address is correct, or contact support@buildprax.com.',
+      })
     }
     return json(200, {
       ok: true,
-      userId: r.rows[0].id,
+      userId: newUserId,
       emailVerified: false,
       requiresEmailVerification: true,
-      verificationEmailSent,
+      verificationEmailSent: true,
     })
   } catch (e) {
     if (String(e.message).includes('duplicate key')) {
@@ -413,8 +435,9 @@ async function signup(body) {
         let verificationEmailSent = true
         try {
           await createAndSendVerificationToken(existing.rows[0].id, existing.rows[0].email)
-        } catch {
+        } catch (sendErr) {
           verificationEmailSent = false
+          console.error('[auth-api] duplicate-unverified resend failed', email, String(sendErr?.message || sendErr))
         }
         return json(200, {
           ok: true,
@@ -481,7 +504,9 @@ async function login(body) {
       return json(423, {
         ok: false,
         code: 'LICENSED_DEVICE_MISMATCH',
-        message: `This paid subscription is already assigned to another device (${user.licensed_device_label || 'licensed device'}).`,
+        message:
+          `This paid subscription is already assigned to another device (${user.licensed_device_label || 'licensed device'}). `
+          + 'To use this seat on a different computer, contact support@buildprax.com so we can move the licence for you.',
       })
     }
   }
@@ -527,7 +552,9 @@ async function confirmLicensedDevice(body) {
     return json(423, {
       ok: false,
       code: 'LICENSED_DEVICE_MISMATCH',
-      message: `This paid subscription is already assigned to another device (${user.licensed_device_label || 'licensed device'}).`,
+      message:
+        `This paid subscription is already assigned to another device (${user.licensed_device_label || 'licensed device'}). `
+        + 'To use this seat on a different computer, contact support@buildprax.com so we can move the licence for you.',
     })
   }
 
@@ -597,7 +624,8 @@ async function resendVerification(body) {
   try {
     await createAndSendVerificationToken(user.id, user.email)
     return json(200, { ok: true, sent: true })
-  } catch {
+  } catch (sendErr) {
+    console.error('[auth-api] resend verification failed', email, String(sendErr?.message || sendErr))
     return json(500, { ok: false, code: 'EMAIL_SEND_FAILED', message: 'Could not send verification email right now.' })
   }
 }
@@ -613,7 +641,9 @@ async function requestPasswordReset(body) {
     `insert into password_reset_tokens (user_id, token_hash, expires_at) values ($1,$2,$3)`,
     [user.id, hashToken(token), addHours(new Date(), RESET_TOKEN_HOURS).toISOString()],
   )
-  await sendPasswordResetEmail(user.email, token).catch(() => {})
+  await sendPasswordResetEmail(user.email, token).catch((sendErr) => {
+    console.error('[auth-api] password reset email failed', email, String(sendErr?.message || sendErr))
+  })
   return json(200, { ok: true })
 }
 
@@ -743,7 +773,7 @@ async function authUser(args) {
   }
 }
 
-async function main(args) {
+export async function main(args) {
   try {
     if (args.http?.method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders, body: '' }
     await ensureSchema()
@@ -792,7 +822,5 @@ async function main(args) {
     })
   }
 }
-
-module.exports.main = main
 
 // force redeploy Sat 11 Apr 2026 — basePath strips ?query so POST /auth/session?cb= matches
