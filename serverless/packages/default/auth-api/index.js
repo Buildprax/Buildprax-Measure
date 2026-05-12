@@ -11,7 +11,7 @@ const REFRESH_TOKEN_DAYS = 30
 const LICENSE_CONFIRM_MESSAGE_1 = 'Trial allowed multiple devices. Paid subscription is limited to one device.'
 const LICENSE_CONFIRM_MESSAGE_2 = 'By continuing, this device becomes your licensed device.'
 const VERIFY_TOKEN_HOURS = 24
-const RESET_TOKEN_HOURS = 1
+const RESET_TOKEN_HOURS = 24
 const AUTH_API_PUBLIC_BASE = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api'
 
 const corsHeaders = {
@@ -316,12 +316,46 @@ async function createAndSendVerificationToken(userId, email) {
 async function sendPasswordResetEmail(email, token) {
   const resetUrl = `${appBaseUrl()}/?reset=${encodeURIComponent(token)}`
   const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com'
+  const textBody = [
+    'Hello,',
+    '',
+    'We received a request to reset the password for your Buildprax account.',
+    '',
+    `Open this link in your browser to choose a new password (link expires in ${RESET_TOKEN_HOURS} hours): ${resetUrl}`,
+    '',
+    'If you did not request this, you can ignore this email.',
+    '',
+    'Buildprax Support',
+    'support@buildprax.com',
+  ].join('\n')
+  const htmlBody = `
+    <div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+      <p>Hello,</p>
+      <p>We received a request to reset the password for your Buildprax account.</p>
+      <p>
+        <a href="${resetUrl}">Click here to set a new password</a>
+        (link expires in ${RESET_TOKEN_HOURS} hours.)
+      </p>
+      <p>If the button or link does not work, copy and paste this URL into your browser:<br/>
+        <span style="word-break: break-all;">${resetUrl}</span>
+      </p>
+      <p>If you did not request this, you can ignore this email.</p>
+      <p>Buildprax Support<br/>support@buildprax.com</p>
+    </div>
+  `
   await sendGridEmail({
     personalizations: [{ to: [{ email }], subject: 'Reset your Buildprax password' }],
     from: { email: fromEmail, name: 'Buildprax' },
     reply_to: { email: 'support@buildprax.com', name: 'Buildprax Support' },
     categories: ['transactional', 'buildprax-account', 'password-reset'],
-    content: [{ type: 'text/plain', value: `Reset your password by opening this link:\n${resetUrl}` }],
+    content: [
+      { type: 'text/plain', value: textBody },
+      { type: 'text/html', value: htmlBody },
+    ],
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+    },
   })
 }
 
@@ -789,8 +823,27 @@ export async function main(args) {
     const body = parseBody(args)
     const method = String(args.http?.method || 'POST').toUpperCase()
 
-    if (method === 'GET' && (p.endsWith('/auth/health') || p.endsWith('/auth/ping'))) {
+    if (method === 'GET' && p.endsWith('/auth/ping')) {
       return json(200, { ok: true, ping: true, time: new Date().toISOString() })
+    }
+    if (method === 'GET' && p.endsWith('/auth/health')) {
+      const sendgridConfigured = !!String(process.env.SENDGRID_API_KEY || '').trim()
+      let dbOk = false
+      let dbError = ''
+      try {
+        await pool.query('select 1 as health_check')
+        dbOk = true
+      } catch (e) {
+        dbError = String(e?.message || e).slice(0, 240)
+      }
+      const ok = dbOk && sendgridConfigured
+      return json(ok ? 200 : 503, {
+        ok,
+        time: new Date().toISOString(),
+        db: dbOk ? 'up' : 'down',
+        sendgrid: sendgridConfigured ? 'configured' : 'missing',
+        ...(dbOk ? {} : { dbError }),
+      })
     }
 
     if (method === 'POST' && p.endsWith('/auth/signup')) return signup(body)
