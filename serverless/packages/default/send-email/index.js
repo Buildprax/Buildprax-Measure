@@ -1,44 +1,40 @@
 // DigitalOcean App Platform Functions - Node.js (HTTP Trigger)
-// Expects JSON body with: action, firstName, lastName, email, company, phone, platform, addressLine1, city, country, source
-// Environment variables: SENDGRID_API_KEY, FROM_EMAIL, SUPPORT_EMAIL
-// Note: Uses SendGrid Web API directly (no external dependencies required).
+// Plain-text transactional email sender for Buildprax website flows.
 
-import https from 'https';
-import crypto from 'crypto';
+const https = require('https')
+const crypto = require('crypto')
+const { Pool } = require('pg')
 
-// CRITICAL: Generate or retrieve customer number server-side
-// Customer numbers are FIXED FOR LIFE - same email always gets same number
-// Customer numbers are required for SharePoint records and customer tracking
-// Sequential numbering starting from BMP000101
-// First customer: cathalcorbett@gmail.com = BMP000101
-function generateOrGetCustomerNumber(email) {
-  if (!email) return '';
-  
-  const normalizedEmail = email.toLowerCase().trim();
-  
-  // CRITICAL: First customer - Cathal Corbett - Fixed number BMP000101
-  if (normalizedEmail === 'cathalcorbett@gmail.com') {
-    return 'BMP000101';
-  }
-  
-  // For other customers, use deterministic hash-based approach
-  // This ensures same email always gets same number
-  // But we'll use a sequential-like approach based on email hash
-  const hash = crypto.createHash('md5').update(normalizedEmail).digest('hex');
-  const num = parseInt(hash.substring(0, 8), 16) % 90000; // 0-89999
-  const customerNum = 102 + num; // Start from 102 (101 is reserved for Cathal)
-  
-  // Ensure we don't accidentally generate 101
-  if (customerNum === 101) {
-    return 'BMP000102';
-  }
-  
-  return `BMP${String(customerNum).padStart(5, '0')}`;
+let pool = null
+
+function getDbPool() {
+  if (pool) return pool
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    host: process.env.PGHOST,
+    port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+    database: process.env.PGDATABASE,
+    ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
+    max: 1,
+  })
+  return pool
+}
+
+async function getCustomerNumberFromDb(email) {
+  if (!email) return ''
+  const db = getDbPool()
+  const r = await db.query(
+    `select customer_number from app_users where lower(email) = lower($1) limit 1`,
+    [email],
+  )
+  return r.rowCount ? String(r.rows[0].customer_number || '').trim() : ''
 }
 
 function sendEmail(apiKey, payload) {
   return new Promise((resolve, reject) => {
-    const data = JSON.stringify(payload);
+    const data = JSON.stringify(payload)
     const req = https.request(
       {
         hostname: 'api.sendgrid.com',
@@ -47,551 +43,426 @@ function sendEmail(apiKey, payload) {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(data)
-        }
+          'Content-Length': Buffer.byteLength(data),
+        },
       },
       (res) => {
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
+        let body = ''
+        res.on('data', (chunk) => { body += chunk })
         res.on('end', () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve({ statusCode: res.statusCode, body });
-          } else {
-            reject(new Error(`SendGrid error ${res.statusCode}: ${body}`));
-          }
-        });
-      }
-    );
-    req.on('error', reject);
-    req.write(data);
-    req.end();
-  });
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve({ statusCode: res.statusCode, body })
+          else reject(new Error(`SendGrid error ${res.statusCode}: ${body}`))
+        })
+      },
+    )
+    req.on('error', reject)
+    req.write(data)
+    req.end()
+  })
 }
 
-export async function main(args) {
-  console.log('Email function called with args:', JSON.stringify(args, null, 2));
-  
-  try {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com';
-    const supportEmail = process.env.SUPPORT_EMAIL || 'support@buildprax.com';
+function parseRequestData(args) {
+  if (args?.http?.body) return JSON.parse(args.http.body)
+  if (!args?.body) return args || {}
+  return typeof args.body === 'string' ? JSON.parse(args.body) : args.body
+}
 
-    const corsHeaders = {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    };
+async function ensureEmailQueueTable() {
+  const db = getDbPool()
+  await db.query(`create extension if not exists "uuid-ossp";`)
+  await db.query(`
+    create table if not exists email_delivery_queue (
+      id uuid primary key default uuid_generate_v4(),
+      action text not null,
+      email text not null,
+      first_name text,
+      payload jsonb not null default '{}'::jsonb,
+      send_at timestamptz not null,
+      created_at timestamptz not null default now(),
+      sent_at timestamptz,
+      status text not null default 'pending',
+      error_message text
+    );
+    create index if not exists idx_email_delivery_queue_pending on email_delivery_queue(status, send_at);
+  `)
+}
 
-    if (args.http?.method === 'OPTIONS') {
-      return {
-        statusCode: 204,
-        headers: corsHeaders,
-        body: ''
-      };
-    }
+async function enqueueEmailDelivery({ action, email, firstName, payload, sendAt }) {
+  const db = getDbPool()
+  await ensureEmailQueueTable()
+  await db.query(
+    `insert into email_delivery_queue (action, email, first_name, payload, send_at, status)
+     values ($1,$2,$3,$4::jsonb,$5,'pending')`,
+    [action, email, firstName || null, JSON.stringify(payload || {}), sendAt.toISOString()],
+  )
+}
 
-    console.log('Environment check:', {
-      hasApiKey: !!apiKey,
-      fromEmail,
-      supportEmail
-    });
+function buildWelcomeText(firstName, platform) {
+  const name = firstName || 'there'
+  return `Hello ${name},
 
-    if (!apiKey) {
-      console.error('Missing SENDGRID_API_KEY');
-      return {
-        statusCode: 500,
-        headers: corsHeaders,
-        body: { ok: false, error: 'Missing SENDGRID_API_KEY' }
-      };
-    }
+Thank you very much for downloading Buildprax Measure Pro.
 
-    // DigitalOcean Functions may pass data in args.body for HTTP requests, or directly in args
-    // Also check for http.body if it's an HTTP trigger
-    const requestData = args.http?.body ? JSON.parse(args.http.body) : (args.body ? (typeof args.body === 'string' ? JSON.parse(args.body) : args.body) : args || {});
-    
-    console.log('Parsed request data:', JSON.stringify(requestData, null, 2));
-    
-    const headers = args.http?.headers || {};
-    const userAgentHeader = headers['user-agent'] || headers['User-Agent'] || '';
-    const chPlatformHeader = headers['sec-ch-ua-platform'] || headers['Sec-CH-UA-Platform'] || '';
+To help you get started smoothly, please open the app after installation and follow these steps:
 
-    let {
-      action = 'trial_registration',
-      firstName = '',
-      lastName = '',
-      email = '',
-      company = '',
-      phone = '',
-      platform = '',
-      addressLine1 = '',
-      city = '',
-      country = '',
-      source = '',
-      licenseKey = '',
-      customerNumber = '',
-      subscriptionType = '',
-      paymentId = '',
-      amount = ''
-    } = requestData;
-    
-    // CRITICAL: Generate customer number server-side if not provided
-    // Customer numbers MUST appear in ALL subscription emails for SharePoint records
-    // This ensures customer numbers are ALWAYS present, even if client-side generation fails
-    if (!customerNumber && (action === 'license_purchase' || action === 'subscription_renewed')) {
-      customerNumber = generateOrGetCustomerNumber(email);
-      console.log('Generated customer number server-side:', customerNumber);
-    }
-    
-    // DEBUG: Log customer number to help diagnose missing customer numbers
-    console.log('Customer number received:', customerNumber);
-    console.log('Customer number type:', typeof customerNumber);
-    console.log('Customer number empty?', !customerNumber || customerNumber === '');
+1) On the sign-in screen, enter your email address and create your password.
+2) Confirm your email address from the verification email.
+3) Return to the app and sign in with your email and newly created password.
+4) Start a new project and complete the project fields as prompted.
+5) Load your drawings.
+6) If you load a PDF drawing, first set the scale.
+7) If you load a DXF drawing, the drawing measurements are recognized automatically.
+8) Click Add to create your Measurement Items (MI), then start measuring.
 
-    if (!platform) {
-      const platformHint = `${chPlatformHeader} ${userAgentHeader}`.toLowerCase();
-      if (platformHint.includes('windows')) {
-        platform = 'Windows';
-      } else if (platformHint.includes('mac')) {
-        platform = 'macOS';
-      }
-    }
+If you need any help at all, you are very welcome to email me directly, or book a live demo with me on Teams.
 
-    if (!email) {
-      console.error('Missing email in request');
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: { ok: false, error: 'Missing email' }
-      };
-    }
-    
-    console.log('Sending emails to:', { user: email, support: supportEmail });
-    console.log('Platform received:', platform);
-    console.log('Platform type:', typeof platform);
+Welcome to Buildprax. I trust that Buildprax Measure Pro will support you well in your daily workflow and help you work faster and more confidently on your projects.
 
-    // Send welcome email to user
-    // Determine platform-specific installation instructions
-    const platformLower = (platform || '').toLowerCase();
-    const isMac = platformLower.includes('mac') || platformLower === 'macos';
-    const isWindows = platformLower.includes('windows') || platformLower === 'windows';
-    
-    console.log('Platform detection:', { platformLower, isMac, isWindows });
-    
-    // CRITICAL: NEVER use template - it contains quarantine language
-    // Always use our safe, approved email content
-    // If this is a license purchase or renewal, include the license key
-    let subject = 'Welcome to BUILDPRAX MEASURE PRO!';
-    let textContent = getWelcomeText(firstName, isMac, isWindows);
-    let htmlContent = getWelcomeHtml(firstName, isMac, isWindows);
-    
-    if (action === 'license_purchase') {
-      subject = 'Your BUILDPRAX MEASURE PRO License Key';
-      textContent = getLicensePurchaseText(firstName, licenseKey, customerNumber);
-      htmlContent = getLicensePurchaseHtml(firstName, licenseKey, customerNumber);
-    } else if (action === 'subscription_renewed') {
-      const renewalPeriod = subscriptionType === 'monthly' ? 'month' : 
-                           subscriptionType === 'quarterly' ? '3 months' : 
-                           subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 
-                           'year';
-      subject = `Your BUILDPRAX MEASURE PRO Subscription Has Renewed`;
-      textContent = getSubscriptionRenewalText(firstName, licenseKey, customerNumber, renewalPeriod);
-      htmlContent = getSubscriptionRenewalHtml(firstName, licenseKey, customerNumber, renewalPeriod);
-    }
-    
-    const toUser = {
-      to: email,
-      from: fromEmail,
-      subject: subject,
-      text: textContent,
-      html: htmlContent,
-    };
-    
-    // Send notification to support with ALL form fields
-    const supportSubject = action === 'license_purchase' ? 'New License Purchase' : 'New Trial Registration';
-    
-    // Ensure platform is clearly shown
-    const platformDisplay = platform || 'NOT SPECIFIED - CHECK FORM';
-    console.log('Platform for support email:', platformDisplay);
-    
-    const supportText = `Action: ${action}
-Name: ${firstName} ${lastName}
-Email: ${email}
-═══════════════════════════════════════
-PLATFORM: ${platformDisplay} ⚠️ IMPORTANT
-═══════════════════════════════════════
-Company: ${company || 'Not provided'}
-Phone: ${phone || 'Not provided'}
-Address: ${addressLine1 || 'Not provided'}
-City: ${city || 'Not provided'}
-Country: ${country || 'Not provided'}
-Source: ${source || 'Not provided'}
-          ${licenseKey ? `License Key(s): ${licenseKey}` : ''}
-          ${customerNumber ? `Customer Number: ${customerNumber}` : ''}
-          ${subscriptionType ? `Subscription Type: ${subscriptionType}` : ''}
-          ${paymentId ? `Payment ID: ${paymentId}` : ''}
-          ${amount ? `Amount: $${amount}` : ''}`;
+Regards,
 
-    const supportHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #10b981;">${supportSubject}</h2>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Action:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${action}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Name:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${firstName} ${lastName}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Email:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${email}</td></tr>
-          <tr style="background-color: #fef3c7; border: 2px solid #f59e0b;">
-            <td style="padding: 12px; border-bottom: 2px solid #f59e0b;"><b style="color: #92400e; font-size: 16px;">⚠️ PLATFORM:</b></td>
-            <td style="padding: 12px; border-bottom: 2px solid #f59e0b;"><strong style="color: #065F46; font-size: 18px; text-transform: uppercase;">${platformDisplay}</strong></td>
-          </tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Company:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${company || 'Not provided'}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Phone:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${phone || 'Not provided'}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Address:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${addressLine1 || 'Not provided'}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>City:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${city || 'Not provided'}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Country:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${country || 'Not provided'}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Source:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${source || 'Not provided'}</td></tr>
-          ${licenseKey ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>License Key(s):</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace;">${licenseKey}</td></tr>` : ''}
-          ${customerNumber ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Customer Number:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #065F46;">${customerNumber}</td></tr>` : ''}
-          ${subscriptionType ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Subscription Type:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${subscriptionType}</td></tr>` : ''}
-          ${paymentId ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Payment ID:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${paymentId}</td></tr>` : ''}
-          ${amount ? `<tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;"><b>Amount:</b></td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">$${amount}</td></tr>` : ''}
-        </table>
-      </div>`;
+Charle Viljoen
+support@buildprax.com`
+}
 
-    const toSupport = {
-      to: supportEmail,
-      from: fromEmail,
-      subject: supportSubject,
-      text: supportText,
-      html: supportHtml
-    };
+function buildWelcomeHtml(firstName) {
+  const name = firstName || 'there'
+  return `<div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+<p>Hello ${name},</p>
+<p>Thank you very much for downloading Buildprax Measure Pro.</p>
+<p>To help you get started smoothly, please open the app after installation and follow these steps:</p>
+<ol>
+  <li>On the sign-in screen, enter your email address and create your password.</li>
+  <li>Confirm your email address from the verification email.</li>
+  <li>Return to the app and sign in with your email and newly created password.</li>
+  <li>Start a new project and complete the project fields as prompted.</li>
+  <li>Load your drawings.</li>
+  <li>If you load a PDF drawing, first set the scale.</li>
+  <li>If you load a DXF drawing, the drawing measurements are recognized automatically.</li>
+  <li>Click Add to create your Measurement Items (MI), then start measuring.</li>
+</ol>
+<p>If you need any help at all, you are very welcome to email me directly, or book a live demo with me on Teams.</p>
+<p>Welcome to Buildprax. I trust that Buildprax Measure Pro will support you well in your daily workflow and help you work faster and more confidently on your projects.</p>
+<p>Regards,</p>
+<p>Charle Viljoen<br>
+support@buildprax.com</p>
+</div>`
+}
 
-    console.log('=== EMAIL CONTENT DEBUG ===');
-    console.log('Welcome email subject:', toUser.subject);
-    console.log('Welcome email text preview:', toUser.text.substring(0, 200));
-    console.log('Welcome email has templateId?', !!toUser.templateId);
-    console.log('Support email platform:', platformDisplay);
-    console.log('Support email HTML contains platform?', supportHtml.includes(platformDisplay));
-    console.log('===========================');
-    
-    console.log('Sending emails via SendGrid...');
-    console.log('toUser object:', JSON.stringify(toUser, null, 2));
-    console.log('toSupport platform field:', platformDisplay);
-    
-    const userPayload = {
-      personalizations: [{ to: [{ email: toUser.to }], subject: toUser.subject }],
-      from: { email: toUser.from },
-      content: [
-        { type: 'text/plain', value: toUser.text },
-        { type: 'text/html', value: toUser.html }
-      ]
-    };
+function buildVideoFollowupText(firstName) {
+  const name = firstName || 'there'
+  return `Hello ${name},
 
-    const supportPayload = {
-      personalizations: [{ to: [{ email: toSupport.to }], subject: toSupport.subject }],
-      from: { email: toSupport.from },
-      content: [
-        { type: 'text/plain', value: toSupport.text },
-        { type: 'text/html', value: toSupport.html }
-      ]
-    };
+Thanks again for downloading Buildprax Measure Pro. To help you get started, I have created a set of short videos.
+Click here: https://www.youtube.com/@Buildprax
 
-    await Promise.all([
-      sendEmail(apiKey, userPayload),
-      sendEmail(apiKey, supportPayload)
-    ]);
-    
-    console.log('✅ Emails sent successfully');
-    console.log('Platform that was sent:', platformDisplay);
+These videos cover setup, measuring workflows, and practical tips to help you work faster.
 
+You are also welcome to join the Buildprax Community Forum:
+https://forum.buildprax.com
+
+On the forum, you can join a network of other professionals like you, post bugs, suggestions or comments about Buildprax, and visit the Marketplace where you can find available job vacancies, post vacancies, and promote your products or services.
+
+If you would like, you can book a live demo with me by using the link on the website, or send me a private email and I will assist directly.
+
+Regards,
+
+Charle Viljoen
+support@buildprax.com`
+}
+
+function buildVideoFollowupHtml(firstName) {
+  const name = firstName || 'there'
+  return `<div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+<p>Hello ${name},</p>
+<p>Thanks again for downloading Buildprax Measure Pro. To help you get started, I have created a set of short videos.<br>
+<a href="https://www.youtube.com/@Buildprax">Click Here</a></p>
+<p>These videos cover setup, measuring workflows, and practical tips to help you work faster.</p>
+<p>You are also welcome to join the Buildprax Community Forum:<br>
+<a href="https://forum.buildprax.com">https://forum.buildprax.com</a></p>
+<p>On the forum, you can join a network of other professionals like you, post bugs, suggestions or comments about Buildprax, and visit the Marketplace where you can find available job vacancies, post vacancies, and promote your products or services.</p>
+<p>If you would like, you can book a live demo with me by using the link on the website, or send me a private email and I will assist directly.</p>
+<p>Regards,</p>
+<p>Charle Viljoen<br>
+support@buildprax.com</p>
+</div>`
+}
+
+function buildTrialSurveyText(firstName) {
+  const name = firstName || 'there'
+  return `Hello ${name},
+
+I noticed that your trial period has ended, and I am sorry to see you leave.
+
+If you have 2 minutes, I would really appreciate your feedback.
+I use your feedback to improve Buildprax, fix pain points, and make the product more useful for professionals like you.
+
+Please start the 2-minute survey (link included in this email).
+
+There is absolutely no obligation, but your input will be highly appreciated.
+
+Thank you again for trying Buildprax.
+
+You are still very welcome to visit the Buildprax Community Forum to connect with other professionals, explore opportunities in the Marketplace, view available job vacancies, post vacancies, and promote your products or services:
+https://forum.buildprax.com
+
+Regards,
+
+Charle Viljoen
+support@buildprax.com`
+}
+
+function buildTrialSurveyHtml(firstName) {
+  const name = firstName || 'there'
+  const surveyUrl = 'https://forms.microsoft.com/Pages/ResponsePage.aspx?id=waZa79JbU06bVBlTCgssG_GwmQ3i7kRDpTBQpQR3DmFUOUZIMk5HTzdaWElNM01YU0JaMEM5QlM2OC4u'
+  return `<div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+<p>Hello ${name},</p>
+<p>I noticed that your trial period has ended, and I am sorry to see you leave.</p>
+<p>If you have 2 minutes, I would really appreciate your feedback.<br>
+I use your feedback to improve Buildprax, fix pain points, and make the product more useful for professionals like you.</p>
+<p><a href="${surveyUrl}">Please start the 2-minute survey</a></p>
+<p>There is absolutely no obligation, but your input will be highly appreciated.</p>
+<p>Thank you again for trying Buildprax.</p>
+<p>You are still very welcome to visit the Buildprax Community Forum to connect with other professionals, explore opportunities in the Marketplace, view available job vacancies, post vacancies, and promote your products or services:<br>
+<a href="https://forum.buildprax.com">https://forum.buildprax.com</a></p>
+<p>Regards,</p>
+<p>Charle Viljoen<br>
+support@buildprax.com</p>
+</div>`
+}
+
+function buildSubscriptionActiveText(firstName, customerNumber) {
+  const name = firstName || 'there'
+  const customerLine = customerNumber ? `Customer number: ${customerNumber}\n` : ''
+  return `Hello ${name},
+
+Thank you very much for your payment.
+Your subscription is now active, and I am very pleased to welcome you as a paid Buildprax user.
+${customerLine}
+What to do next:
+1) Open Buildprax Measure Pro
+2) Sign in with your account email
+3) If needed, use Forgot Password
+4) Confirm Buildprax to be used on this device (each license can be used on one device only)
+5) Access loads automatically from your account
+
+You are also very welcome to join the Buildprax Community Forum to connect with other professionals, explore Marketplace opportunities, view available job vacancies, post vacancies, and promote your products or services:
+https://forum.buildprax.com
+
+Thank you for your support.
+
+Regards,
+
+Charle Viljoen
+support@buildprax.com`
+}
+
+function buildSubscriptionActiveHtml(firstName, customerNumber) {
+  const name = firstName || 'there'
+  return `<div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+<p>Hello ${name},</p>
+<p>Thank you very much for your payment.<br>
+Your subscription is now active, and I am very pleased to welcome you as a paid Buildprax user.</p>
+${customerNumber ? `<p>Customer number: ${customerNumber}</p>` : ''}
+<p>What to do next:</p>
+<ol>
+  <li>Open Buildprax Measure Pro</li>
+  <li>Sign in with your account email</li>
+  <li>If needed, use Forgot Password</li>
+  <li>Confirm Buildprax to be used on this device (each license can be used on one device only)</li>
+  <li>Access loads automatically from your account</li>
+</ol>
+<p>You are also very welcome to join the Buildprax Community Forum to connect with other professionals, explore Marketplace opportunities, view available job vacancies, post vacancies, and promote your products or services:<br>
+<a href="https://forum.buildprax.com">https://forum.buildprax.com</a></p>
+<p>Thank you for your support.</p>
+<p>Regards,</p>
+<p>Charle Viljoen<br>
+support@buildprax.com</p>
+</div>`
+}
+
+function buildPaymentReceivedText(firstName) {
+  const name = firstName || 'there'
+  return `Hello ${name},
+
+Thank you very much for your payment.
+I have updated your subscription status, and your account remains active.
+
+Please make sure you are using the latest version of Buildprax Measure Pro:
+https://buildprax.com
+
+If you need any assistance, you are always welcome to contact me directly.
+
+Thank you for your continued support.
+
+Regards,
+
+Charle Viljoen
+support@buildprax.com`
+}
+
+function buildPaymentReceivedHtml(firstName) {
+  const name = firstName || 'there'
+  return `<div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+<p>Hello ${name},</p>
+<p>Thank you very much for your payment.<br>
+I have updated your subscription status, and your account remains active.</p>
+<p>Please make sure you are using the latest version of Buildprax Measure Pro:<br>
+<a href="https://buildprax.com">https://buildprax.com</a></p>
+<p>If you need any assistance, you are always welcome to contact me directly.</p>
+<p>Thank you for your continued support.</p>
+<p>Regards,</p>
+<p>Charle Viljoen<br>
+support@buildprax.com</p>
+</div>`
+}
+
+function buildSupportAuditText(requestData) {
+  return `EMAIL FLOW AUDIT
+================
+Action: ${requestData.action || ''}
+Name: ${requestData.firstName || ''} ${requestData.lastName || ''}
+Email: ${requestData.email || ''}
+Platform: ${requestData.platform || ''}
+Company: ${requestData.company || ''}
+Phone: ${requestData.phone || ''}
+City: ${requestData.city || ''}
+Country: ${requestData.country || ''}
+Customer number: ${requestData.customerNumber || ''}
+Subscription type: ${requestData.subscriptionType || ''}
+Payment ID: ${requestData.paymentId || ''}
+Amount: ${requestData.amount || ''}`
+}
+
+function buildActionEmail(action, requestData) {
+  const firstName = requestData.firstName || ''
+  const platform = requestData.platform || ''
+  const customerNumber = requestData.customerNumber || ''
+  if (action === 'license_purchase') {
     return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: { ok: true, message: 'Emails sent successfully' }
-    };
+      subject: 'Buildprax subscription is active',
+      text: buildSubscriptionActiveText(firstName, customerNumber),
+      html: buildSubscriptionActiveHtml(firstName, customerNumber),
+    }
+  }
+  if (action === 'subscription_renewed') {
+    return {
+      subject: 'Buildprax payment received',
+      text: buildPaymentReceivedText(firstName),
+      html: buildPaymentReceivedHtml(firstName),
+    }
+  }
+  if (action === 'getting_started_videos') {
+    return {
+      subject: 'Buildprax getting-started videos',
+      text: buildVideoFollowupText(firstName),
+      html: buildVideoFollowupHtml(firstName),
+    }
+  }
+  if (action === 'trial_expired_survey') {
+    return {
+      subject: 'Buildprax quick trial survey',
+      text: buildTrialSurveyText(firstName),
+      html: buildTrialSurveyHtml(firstName),
+    }
+  }
+  return {
+    subject: 'Welcome to Buildprax Measure Pro',
+    text: buildWelcomeText(firstName, platform),
+    html: buildWelcomeHtml(firstName),
+  }
+}
+
+async function sendPlainText(apiKey, fromEmail, to, subject, text) {
+  const payload = {
+    personalizations: [{ to: [{ email: to }], subject }],
+    from: { email: fromEmail },
+    content: [{ type: 'text/plain', value: text }],
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+    },
+  }
+  return sendEmail(apiKey, payload)
+}
+
+async function sendTextAndOptionalHtml(apiKey, fromEmail, to, emailContent, options = {}) {
+  const payload = {
+    personalizations: [{ to: [{ email: to }], subject: emailContent.subject }],
+    from: { email: fromEmail },
+    content: emailContent.html
+      ? [
+          { type: 'text/plain', value: emailContent.text },
+          { type: 'text/html', value: emailContent.html },
+        ]
+      : [{ type: 'text/plain', value: emailContent.text }],
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+    },
+  }
+  if (options.sendAtEpochSeconds) {
+    payload.send_at = Number(options.sendAtEpochSeconds)
+  }
+  return sendEmail(apiKey, payload)
+}
+
+async function main(args) {
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  }
+
+  try {
+    if (args.http?.method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders, body: '' }
+
+    const apiKey = process.env.SENDGRID_API_KEY
+    const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com'
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@buildprax.com'
+    if (!apiKey) return { statusCode: 500, headers: corsHeaders, body: { ok: false, error: 'Missing SENDGRID_API_KEY' } }
+
+    const requestData = parseRequestData(args)
+    let { action = 'trial_registration', email = '', customerNumber = '' } = requestData
+    // Avoid spamming support copies during scheduled/background sends.
+    const sendSupportAudit = requestData.sendSupportAudit !== false
+    if (!email) return { statusCode: 400, headers: corsHeaders, body: { ok: false, error: 'Missing email' } }
+
+    if (!customerNumber && (action === 'license_purchase' || action === 'subscription_renewed')) {
+      customerNumber = await getCustomerNumberFromDb(email)
+      requestData.customerNumber = customerNumber
+    }
+
+    const primary = buildActionEmail(action, requestData)
+    await sendTextAndOptionalHtml(apiKey, fromEmail, email, primary)
+
+    // Queue help-video follow-up for new trial registrations (5 minutes delay).
+    if (action === 'trial_registration') {
+      const delayedAt = new Date(Date.now() + 5 * 60 * 1000)
+      await enqueueEmailDelivery({
+        action: 'getting_started_videos',
+        email,
+        firstName: requestData.firstName || '',
+        payload: { platform: requestData.platform || '' },
+        sendAt: delayedAt,
+      })
+    }
+
+    // Optionally send an audit copy to support so message quality can be checked.
+    if (sendSupportAudit) {
+      const supportSubject = `Buildprax email audit: ${action}`
+      const supportText = buildSupportAuditText(requestData)
+      await sendPlainText(apiKey, fromEmail, supportEmail, supportSubject, supportText)
+    }
+
+    return { statusCode: 200, headers: corsHeaders, body: { ok: true, message: 'Emails sent' } }
   } catch (err) {
-    console.error('❌ Error sending emails:', err);
-    console.error('Error stack:', err.stack);
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: { ok: false, error: err?.message || 'Send failed', details: err.toString() }
-    };
+      body: { ok: false, error: err?.message || 'Send failed', details: String(err) },
+    }
   }
 }
 
-function getWelcomeText(firstName, isMac, isWindows) {
-  const name = firstName || 'there';
-  let installInstructions = '';
-  
-  if (isMac) {
-    installInstructions = `1) Open the downloaded .dmg file\n2) Drag BUILDPRAX MEASURE PRO to your Applications folder\n3) Open the app from Applications (it's fully approved and notarized by Apple - completely safe!)\n4) Create your first project`;
-  } else if (isWindows) {
-    installInstructions = `1) Open the Microsoft Store link\n2) Click "Get" or "Install" to download\n3) Launch the app from the Start menu\n4) Create your first project`;
-  } else {
-    installInstructions = `1) Install the app\n2) Create your first project`;
-  }
-  
-  return `Hello ${name},
-
-Thank you for downloading the free trial of BUILDPRAX MEASURE PRO.
-Please test it and let us know if you need any changes or help.
-
-BUILDPRAX MEASURE PRO is 100% legitimate and approved for both Windows and macOS. We only keep your information for support, and your drawings stay on your own computer — nothing is uploaded to the cloud. Your clients' intellectual property remains safe.
-
-Getting Started:
-${installInstructions}
-5) Upload a PDF and set scale using a known distance
-6) Measure (Length, Area, Count) and export to Excel
-
-Thank you again for trying BUILDPRAX MEASURE PRO.
-
-Need Help?
-- Installation Guide: https://buildprax.com/installation-guide.html
-- Email Support: support@buildprax.com
-
-— The BUILDPRAX Team`;
-}
-
-function getWelcomeHtml(firstName, isMac, isWindows) {
-  const name = firstName || 'there';
-  let installSteps = '';
-  
-  if (isMac) {
-    installSteps = `
-      <li><strong>Open the downloaded .dmg file</strong></li>
-      <li><strong>Drag BUILDPRAX MEASURE PRO to your Applications folder</strong></li>
-      <li><strong>Open the app from Applications</strong> - It's fully approved and notarized by Apple, completely safe to use!</li>
-      <li><strong>Create your first project</strong></li>`;
-  } else if (isWindows) {
-    installSteps = `
-      <li><strong>Open the Microsoft Store link</strong></li>
-      <li><strong>Click "Get" or "Install"</strong> to download</li>
-      <li><strong>Launch the app</strong> from the Start menu</li>
-      <li><strong>Create your first project</strong></li>`;
-  } else {
-    installSteps = `
-      <li><strong>Install the app</strong></li>
-      <li><strong>Create your first project</strong></li>`;
-  }
-  
-  return `
-  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #10b981;">Thank you for downloading BUILDPRAX MEASURE PRO, ${name}!</h2>
-    <p>Please test the free trial and let us know if you need any changes or help.</p>
-    
-    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #065F46; font-weight: 600;">✅ <strong>Your download is ready.</strong> BUILDPRAX MEASURE PRO is 100% legitimate and approved for Windows and macOS.</p>
-    </div>
-    
-    <h3 style="color: #1e3a8a; margin-top: 30px;">Getting Started:</h3>
-    <ol style="line-height: 1.8;">
-      ${installSteps}
-      <li><strong>Upload a PDF</strong> and set scale using a known distance</li>
-      <li><strong>Measure</strong> (Length, Area, Count) and export to Excel</li>
-    </ol>
-    
-    <p style="margin-top: 20px; color: #475569; font-size: 14px;">
-      We only keep your information for support, and all drawings stay on your own hard drive — nothing is uploaded to the cloud. Your clients' intellectual property remains safe.
-    </p>
-    
-    <h3 style="color: #1e3a8a; margin-top: 30px;">Need Help?</h3>
-    <ul style="line-height: 1.8;">
-      <li><a href="https://buildprax.com/installation-guide.html" style="color: #065F46;">Installation Guide</a></li>
-      <li>Email: <a href="mailto:support@buildprax.com" style="color: #065F46;">support@buildprax.com</a></li>
-    </ul>
-    <p style="margin-top: 30px;">— The BUILDPRAX Team</p>
-  </div>`;
-}
-
-function getLicensePurchaseText(firstName, licenseKey, customerNumber) {
-  const name = firstName || 'there';
-  const keys = licenseKey.split(', '); // Handle multiple keys
-  const isMultiple = keys.length > 1;
-  
-  let keySection = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${isMultiple ? 'YOUR LICENSE KEYS:\n\n' : 'YOUR LICENSE KEY:\n'}
-${keys.map((key, i) => isMultiple ? `${i + 1}. ${key}` : key).join('\n')}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-  // CRITICAL: Customer number MUST always appear in subscription emails
-  // This is required for SharePoint records and customer tracking
-  const customerNumberSection = customerNumber 
-    ? `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCUSTOMER NUMBER: ${customerNumber}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPlease save this customer number for future reference. You'll need it if you want to add additional licenses or renew your subscription.\n`
-    : '';
-
-  return `Hello ${name},
-
-Thank you for your purchase of BUILDPRAX MEASURE PRO!
-
-${isMultiple ? 'Your license keys are ready. Please enter each one in the app to activate your subscriptions.' : 'Your license key is ready. Please enter it in the app to activate your subscription.'}
-
-${keySection}
-${customerNumberSection}
-
-How to Activate:
-1) Open BUILDPRAX MEASURE PRO
-2) Go to Help → Enter License Key
-3) Paste your license key${isMultiple ? 's (one at a time)' : ''} above
-4) Click "Activate License"
-
-${isMultiple ? 'Repeat steps 2-4 for each additional license key.\n' : ''}Your subscription${isMultiple ? 's are' : ' is'} now active! You can use all features immediately.
-
-IMPORTANT - Automatic Renewal:
-Your subscription will renew automatically at the end of each billing cycle until you cancel it. You will receive an email notification from PayPal before each renewal. To cancel your subscription, log in to your PayPal account and go to Subscriptions, or contact us at support@buildprax.com.
-
-Need Help?
-- Installation Guide: https://buildprax.com/installation-guide.html
-- Email Support: support@buildprax.com
-
-Thank you for supporting BUILDPRAX!
-
-— The BUILDPRAX Team`;
-}
-
-function getLicensePurchaseHtml(firstName, licenseKey, customerNumber) {
-  const name = firstName || 'there';
-  const keys = licenseKey.split(', '); // Handle multiple keys
-  const isMultiple = keys.length > 1;
-  
-  return `
-  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #10b981;">Thank you for your purchase, ${name}!</h2>
-    <p>${isMultiple ? 'Your license keys are ready. Please enter each one in the app to activate your subscriptions.' : 'Your license key is ready. Please enter it in the app to activate your subscription.'}</p>
-    
-    <div style="background-color: #f0fdf4; border: 2px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
-      <p style="margin: 0 0 10px 0; color: #065F46; font-weight: 600; font-size: 14px;">${isMultiple ? 'YOUR LICENSE KEYS:' : 'YOUR LICENSE KEY:'}</p>
-      ${keys.map((key, i) => `
-        ${isMultiple ? `<p style="margin: 8px 0; font-size: 12px; color: #065F46; font-weight: 600;">License ${i + 1}:</p>` : ''}
-        <p style="margin: ${isMultiple ? '0 0 16px 0' : '0'}; font-size: ${isMultiple ? '16px' : '18px'}; font-weight: 700; color: #065F46; letter-spacing: 1px; font-family: monospace; word-break: break-all;">
-          ${key}
-        </p>
-      `).join('')}
-    </div>
-    
-    <!-- CRITICAL: Customer number MUST always appear in subscription emails -->
-    <!-- This is required for SharePoint records and customer tracking -->
-    ${customerNumber ? `
-    <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
-      <p style="margin: 0 0 10px 0; color: #92400e; font-weight: 600; font-size: 14px;">CUSTOMER NUMBER</p>
-      <p style="margin: 0 0 10px 0; font-size: 20px; font-weight: 700; color: #92400e; letter-spacing: 1px; font-family: monospace;">
-        ${customerNumber}
-      </p>
-      <p style="margin: 0; color: #92400e; font-size: 12px;">
-        Please save this customer number for future reference. You'll need it if you want to add additional licenses or renew your subscription.
-      </p>
-    </div>
-    ` : ''}
-    
-    <h3 style="color: #1e3a8a; margin-top: 30px;">How to Activate:</h3>
-    <ol style="line-height: 1.8;">
-      <li><strong>Open BUILDPRAX MEASURE PRO</strong></li>
-      <li><strong>Go to Help → Enter License Key</strong></li>
-      <li><strong>Paste your license key</strong> (shown above)</li>
-      <li><strong>Click "Activate License"</strong></li>
-    </ol>
-    
-    <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #1e40af; font-weight: 600;">✅ Your subscription is now active! You can use all features immediately.</p>
-    </div>
-    
-    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #92400e; font-weight: 600;">🔄 <strong>Automatic Renewal:</strong></p>
-      <p style="margin: 8px 0 0 0; color: #92400e; font-size: 14px;">
-        Your subscription will renew automatically at the end of each billing cycle until you cancel it. You will receive an email notification from PayPal before each renewal. To cancel, log in to your PayPal account and go to Subscriptions, or contact us at <a href="mailto:support@buildprax.com" style="color: #92400e;">support@buildprax.com</a>.
-      </p>
-    </div>
-    
-    <h3 style="color: #1e3a8a; margin-top: 30px;">Need Help?</h3>
-    <ul style="line-height: 1.8;">
-      <li><a href="https://buildprax.com/installation-guide.html" style="color: #065F46;">Installation Guide</a></li>
-      <li>Email: <a href="mailto:support@buildprax.com" style="color: #065F46;">support@buildprax.com</a></li>
-    </ul>
-    
-    <p style="margin-top: 30px;">Thank you for supporting BUILDPRAX!</p>
-    <p>— The BUILDPRAX Team</p>
-  </div>`;
-}
-
-// CRITICAL: Subscription renewal email templates
-// These are sent automatically when PayPal renews a subscription
-// Customer numbers MUST appear in all renewal emails for SharePoint records
-function getSubscriptionRenewalText(firstName, licenseKey, customerNumber, renewalPeriod) {
-  const name = firstName || 'there';
-  
-  return `Hello ${name},
-
-Your BUILDPRAX MEASURE PRO subscription has been automatically renewed for another ${renewalPeriod}.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-YOUR NEW LICENSE KEY:
-${licenseKey}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CUSTOMER NUMBER: ${customerNumber}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Please enter your new license key in the app to continue using BUILDPRAX MEASURE PRO:
-
-1) Open BUILDPRAX MEASURE PRO
-2) Go to Help → Enter License Key
-3) Paste your new license key (shown above)
-4) Click "Activate License"
-
-Your subscription will continue to renew automatically every ${renewalPeriod} until you cancel from your PayPal account.
-
-Need Help?
-- Installation Guide: https://buildprax.com/installation-guide.html
-- Email Support: support@buildprax.com
-
-Thank you for supporting BUILDPRAX!
-
-— The BUILDPRAX Team`;
-}
-
-function getSubscriptionRenewalHtml(firstName, licenseKey, customerNumber, renewalPeriod) {
-  const name = firstName || 'there';
-  
-  return `
-  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #10b981;">Your Subscription Has Been Renewed, ${name}!</h2>
-    <p>Your BUILDPRAX MEASURE PRO subscription has been automatically renewed for another ${renewalPeriod}.</p>
-    
-    <div style="background-color: #f0fdf4; border: 2px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
-      <p style="margin: 0 0 10px 0; color: #065F46; font-weight: 600; font-size: 14px;">YOUR NEW LICENSE KEY:</p>
-      <p style="margin: 0; font-size: 18px; font-weight: 700; color: #065F46; letter-spacing: 1px; font-family: monospace; word-break: break-all;">
-        ${licenseKey}
-      </p>
-    </div>
-    
-    <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
-      <p style="margin: 0 0 10px 0; color: #92400e; font-weight: 600; font-size: 14px;">CUSTOMER NUMBER</p>
-      <p style="margin: 0; font-size: 20px; font-weight: 700; color: #92400e; letter-spacing: 1px; font-family: monospace;">
-        ${customerNumber}
-      </p>
-    </div>
-    
-    <h3 style="color: #1e3a8a; margin-top: 30px;">How to Activate Your New License:</h3>
-    <ol style="line-height: 1.8;">
-      <li><strong>Open BUILDPRAX MEASURE PRO</strong></li>
-      <li><strong>Go to Help → Enter License Key</strong></li>
-      <li><strong>Paste your new license key</strong> (shown above)</li>
-      <li><strong>Click "Activate License"</strong></li>
-    </ol>
-    
-    <div style="background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #1e40af; font-weight: 600;">✅ Your subscription will continue to renew automatically every ${renewalPeriod} until you cancel from your PayPal account.</p>
-    </div>
-    
-    <h3 style="color: #1e3a8a; margin-top: 30px;">Need Help?</h3>
-    <ul style="line-height: 1.8;">
-      <li><a href="https://buildprax.com/installation-guide.html" style="color: #065F46;">Installation Guide</a></li>
-      <li>Email: <a href="mailto:support@buildprax.com" style="color: #065F46;">support@buildprax.com</a></li>
-    </ul>
-    
-    <p style="margin-top: 30px;">Thank you for supporting BUILDPRAX!</p>
-    <p>— The BUILDPRAX Team</p>
-  </div>`;
-}
+module.exports.main = main
