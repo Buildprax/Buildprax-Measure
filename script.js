@@ -2,6 +2,8 @@
 // If you later add Functions to App Platform at /api/send-email,
 // you can switch this to '/api/send-email'.
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
+/** Activates paid entitlement in production DB (same handler as PayPal webhooks). */
+const PAYPAL_WEBHOOK_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/paypal-webhook';
 /** Direct DigitalOcean auth function (desktop apps, local file preview, non-production hosts). */
 const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
 
@@ -790,22 +792,35 @@ function initializePayPalSubscription() {
                         if (quantity < 1) quantity = 1;
                     }
                     const additionalLicenses = key === 'yearly' ? Math.max(0, quantity - 1) : 0;
-                    
-                    // Generate and send license keys
-                    sendLicenseKey(userEmail, {
-                        id: data.subscriptionID,
-                        subscriptionID: data.subscriptionID,
-                        status: details.status || 'ACTIVE',
-                        type: 'subscription'
-                    }, subscriptionType, additionalLicenses, quantity, packageCode);
-                    
+
+                    // Activate entitlement immediately (do not rely on PayPal webhook delivery alone).
+                    activateSubscriptionAfterPaypal(data, details)
+                        .then(function(activation) {
+                            if (!activation?.ok) {
+                                console.warn('Subscription activation returned non-ok:', activation);
+                            }
+                            sendPurchaseConfirmationEmail(userEmail, {
+                                id: data.subscriptionID,
+                                subscriptionID: data.subscriptionID,
+                                status: details.status || 'ACTIVE',
+                                type: 'subscription'
+                            }, subscriptionType, additionalLicenses, quantity, packageCode);
+                        })
+                        .catch(function(activationErr) {
+                            console.error('Subscription activation failed:', activationErr);
+                            showMessage(
+                                'Payment received. We could not confirm activation automatically — please contact support@buildprax.com with your PayPal subscription ID: '
+                                + data.subscriptionID,
+                                'error'
+                            );
+                        });
+
                     // Close modal
                     closePaymentModal();
-                    
+
                     // Show success message
                     const renewalPeriod = subscriptionType === 'monthly' ? 'month' : subscriptionType === 'quarterly' ? '3 months' : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 'year';
-                    const licenseText = quantity > 1 ? `${quantity} licenses` : '1 license';
-                    showMessage(`Subscription successful! Your subscription is active. Your license key${quantity > 1 ? 's' : ''} have been sent to your email. Your subscription will renew automatically every ${renewalPeriod} until you cancel from your PayPal account.`, 'success');
+                    showMessage(`Subscription successful! Your account is now active. Check your email for sign-in instructions. Sign in inside Buildprax Measure Pro with ${userEmail}. Your subscription renews every ${renewalPeriod} until you cancel in PayPal.`, 'success');
                 }).catch(function(err) {
                     console.error('Error getting subscription details:', err);
                     // Still process the subscription even if details fetch fails
@@ -822,15 +837,17 @@ function initializePayPalSubscription() {
                         }
                         const additionalLicenses = key === 'yearly' ? Math.max(0, quantity - 1) : 0;
                         
-                        sendLicenseKey(userEmail, {
-                            id: data.subscriptionID,
-                            subscriptionID: data.subscriptionID,
-                            status: 'ACTIVE',
-                            type: 'subscription'
-                        }, subscriptionType, additionalLicenses, quantity, packageCode);
-                        
+                        activateSubscriptionAfterPaypal(data, { status: 'ACTIVE', subscriber: { email_address: userEmail } })
+                            .finally(function() {
+                                sendPurchaseConfirmationEmail(userEmail, {
+                                    id: data.subscriptionID,
+                                    subscriptionID: data.subscriptionID,
+                                    status: 'ACTIVE',
+                                    type: 'subscription'
+                                }, subscriptionType, additionalLicenses, quantity, packageCode);
+                            });
                         closePaymentModal();
-                        showMessage(`Subscription successful! Your license key${quantity > 1 ? 's' : ''} have been sent to your email.`, 'success');
+                        showMessage(`Subscription successful! Check your email for sign-in instructions, then sign in in the app with ${userEmail}.`, 'success');
                     }
                 });
             },
@@ -884,8 +901,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Card payment is now handled by PayPal SDK - no separate function needed
 
-// Send subscription confirmation and support audit.
-function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0, totalLicenses = 1, packageCode = 'quartz') {
+/** POST activation payload to paypal-webhook so DB entitlement matches PayPal checkout. */
+function activateSubscriptionAfterPaypal(paypalData, details) {
+    const subscriptionId = paypalData?.subscriptionID || details?.id || '';
+    const planId =
+        details?.plan_id ||
+        (details?.plan && details.plan.id) ||
+        '';
+    const subscriber = details?.subscriber || {};
+    const providerEventId =
+        paypalData?.orderID ||
+        paypalData?.subscriptionID ||
+        ('checkout-' + Date.now());
+    const payload = {
+        id: providerEventId,
+        event_type: 'BILLING.SUBSCRIPTION.ACTIVATED',
+        resource: {
+            id: subscriptionId,
+            plan_id: planId,
+            status: details?.status || 'ACTIVE',
+            subscriber: subscriber,
+            billing_info: details?.billing_info || {},
+        },
+    };
+    return fetch(PAYPAL_WEBHOOK_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    }).then(function(response) {
+        return response.json().then(function(body) {
+            if (!response.ok) {
+                throw new Error(body?.error || body?.message || ('Activation failed (' + response.status + ')'));
+            }
+            return body;
+        });
+    });
+}
+
+// Send subscription confirmation and support audit (account sign-in model; no license keys).
+function sendPurchaseConfirmationEmail(email, paymentDetails, subscriptionType = 'yearly', additionalLicenses = 0, totalLicenses = 1, packageCode = 'quartz') {
     // Get or create customer number ONLY when subscription is purchased
     // Customer numbers are NOT assigned for trial downloads, only for paid subscriptions
     const customerNumber = getCustomerNumber(email);
@@ -895,14 +949,6 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
     const firstName = customerData.firstName || '';
     const lastName = customerData.lastName || '';
     
-    // Generate license keys for all licenses (first + additional)
-    const licenseKeys = [];
-    for (let i = 0; i < totalLicenses; i++) {
-        licenseKeys.push(generateLicenseKey(subscriptionType));
-    }
-    
-    // Store license keys
-    const licenses = JSON.parse(localStorage.getItem('licenses') || '[]');
     const pkg = PACKAGE_PRICES[packageCode] || PACKAGE_PRICES.quartz;
     const normalizedSubType = normalizeCycleKey(subscriptionType);
     const basePrice = normalizedSubType === 'monthly'
@@ -915,25 +961,7 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
     const additionalPrice = Number(pkg.yearlyAdditional);
     const totalAmount = basePrice + (additionalLicenses * additionalPrice);
     
-    licenseKeys.forEach((key, index) => {
-        licenses.push({
-            email: email,
-            licenseKey: key,
-            customerNumber: customerNumber,
-            subscriptionType: subscriptionType,
-            packageCode: packageCode,
-            licenseNumber: index + 1,
-            totalLicenses: licenseKeys.length,
-            timestamp: new Date().toISOString(),
-            paymentId: paymentDetails.id || paymentDetails.subscriptionID || 'manual',
-            subscriptionID: paymentDetails.subscriptionID || null,
-            isRecurring: !!paymentDetails.subscriptionID,
-            amount: totalAmount.toFixed(2)
-        });
-    });
-    localStorage.setItem('licenses', JSON.stringify(licenses));
-    
-    // Send license key email to customer (with ALL keys) and notification to support
+    // Send subscription-active email to customer and notification to support
     fetch(EMAIL_ENDPOINT, {
         method: 'POST',
         headers: {
@@ -950,7 +978,6 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
             city: customerData.city || '',
             country: customerData.country || '',
             source: '',
-            licenseKey: licenseKeys.join(', '), // Send all keys if multiple
             customerNumber: customerNumber,
             subscriptionType: subscriptionType,
             packageCode: packageCode,
@@ -963,17 +990,21 @@ function sendLicenseKey(email, paymentDetails, subscriptionType = 'yearly', addi
     })
     .then(response => {
         if (response.ok) {
-            console.log('License key email sent to customer and notification sent to support');
+            console.log('Subscription confirmation email sent to customer and notification sent to support');
         } else {
-            console.error('Failed to send license key email:', response.status);
+            console.error('Failed to send subscription confirmation email:', response.status);
         }
     })
     .catch(error => {
-        console.error('Error sending license key email:', error);
+        console.error('Error sending subscription confirmation email:', error);
     });
-    
-    console.log('License keys generated:', licenseKeys);
+
     console.log('Customer number:', customerNumber);
+}
+
+/** @deprecated Use sendPurchaseConfirmationEmail — kept for any stale references. */
+function sendLicenseKey(email, paymentDetails, subscriptionType, additionalLicenses, totalLicenses, packageCode) {
+    return sendPurchaseConfirmationEmail(email, paymentDetails, subscriptionType, additionalLicenses, totalLicenses, packageCode);
 }
 
 // Get or create customer number for an email
