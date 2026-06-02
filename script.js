@@ -1002,11 +1002,6 @@ function sendPurchaseConfirmationEmail(email, paymentDetails, subscriptionType =
     console.log('Customer number:', customerNumber);
 }
 
-/** @deprecated Use sendPurchaseConfirmationEmail — kept for any stale references. */
-function sendLicenseKey(email, paymentDetails, subscriptionType, additionalLicenses, totalLicenses, packageCode) {
-    return sendPurchaseConfirmationEmail(email, paymentDetails, subscriptionType, additionalLicenses, totalLicenses, packageCode);
-}
-
 // Get or create customer number for an email
 // IMPORTANT: Customer numbers are ONLY assigned when a subscription is purchased, NOT for trial downloads
 // Customer numbers are FIXED FOR LIFE - same email always gets same number
@@ -1043,34 +1038,6 @@ function getCustomerNumber(email) {
     localStorage.setItem('customerNumbers', JSON.stringify(customerNumbers));
     console.log('Generated new customer number for subscription purchase:', normalizedEmail, customerNumber);
     return customerNumber;
-}
-
-// Generate License Key Function - Updated to support subscription types
-function generateLicenseKey(subscriptionType = 'yearly') {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    
-    function generateRandomString(length) {
-        let result = '';
-        for (let i = 0; i < length; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
-    
-    // Generate key based on subscription type
-    switch(subscriptionType.toLowerCase()) {
-        case 'monthly':
-            return `BUILDPRAX-MON-${generateRandomString(6)}-${generateRandomString(6)}`;
-        case 'quarterly':
-            return `BUILDPRAX-QTR-${generateRandomString(6)}-${generateRandomString(6)}`;
-        case 'halfyearly':
-        case 'half-yearly':
-            return `BUILDPRAX-HLF-${generateRandomString(6)}-${generateRandomString(6)}`;
-        case 'yearly':
-        default:
-            const year = new Date().getFullYear() + 1;
-            return `BUILDPRAX-${year}-${generateRandomString(6)}-${generateRandomString(6)}`;
-    }
 }
 
 // Show Message Function
