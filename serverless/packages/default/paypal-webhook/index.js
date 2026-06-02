@@ -187,11 +187,13 @@ function isSubscriptionPaymentEvent(eventType, resource) {
   return false;
 }
 
-function shouldSendRenewalEmail(eventType) {
+function shouldSendSubscriptionEmail(eventType) {
   return (
+    eventType === 'BILLING.SUBSCRIPTION.ACTIVATED' ||
     eventType === 'BILLING.SUBSCRIPTION.RENEWED' ||
     eventType === 'BILLING.SUBSCRIPTION.PAYMENT.SUCCEEDED' ||
-    eventType === 'PAYMENT.SALE.COMPLETED'
+    eventType === 'PAYMENT.SALE.COMPLETED' ||
+    eventType === 'PAYMENT.CAPTURE.COMPLETED'
   );
 }
 
@@ -515,15 +517,15 @@ function getSubscriptionTypeFromPlanId(planId) {
   return planMap[planId] || 'monthly'; // Default to monthly if not found
 }
 
-// Send renewal email (account/subscription model, no license keys)
-async function sendRenewalEmail(email, firstName, customerNumber, subscriptionType) {
+// Send subscription email (account sign-in model, no license keys)
+async function sendSubscriptionEmail(email, firstName, customerNumber, subscriptionType, action) {
   const renewalPeriod = subscriptionType === 'monthly' ? 'month' : 
                         subscriptionType === 'quarterly' ? '3 months' : 
                         subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 
                         'year';
   
   const emailData = {
-    action: 'subscription_renewed',
+    action: action === 'license_purchase' ? 'license_purchase' : 'subscription_renewed',
     firstName: firstName || '',
     email: email,
     customerNumber: customerNumber,
@@ -705,8 +707,11 @@ async function main(args) {
         await client.query('begin');
         const preSubscriptionRowId = await getSubscriptionRowId(client, subscriptionId, email);
         if (!preSubscriptionRowId && !isFirstActivation) {
-          throw new Error(
-            `No subscription row for PayPal id ${subscriptionId || 'n/a'} / ${email || 'n/a'} — assign in DB before renewal webhooks`,
+          // Keep renewals resilient: if activation was missed, downstream upsert path can still
+          // recover by matching email + PayPal plan and create a missing subscription row.
+          console.warn(
+            'No pre-existing subscription row for renewal-like event; continuing with recovery upsert path',
+            { subscriptionId: subscriptionId || null, email: email || null, eventType },
           );
         }
         const existingPeriodEnd = await getCurrentPeriodEnd(client, subscriptionId, email);
@@ -755,9 +760,11 @@ async function main(args) {
         client.release();
       }
 
+      const emailAction =
+        isFirstActivation ? 'license_purchase' : 'subscription_renewed';
       const emailSent =
-        email && shouldSendRenewalEmail(eventType)
-          ? await sendRenewalEmail(email, firstName, customerNumber, subscriptionType)
+        email && shouldSendSubscriptionEmail(eventType)
+          ? await sendSubscriptionEmail(email, firstName, customerNumber, subscriptionType, emailAction)
           : false;
       
       if (emailSent) {
