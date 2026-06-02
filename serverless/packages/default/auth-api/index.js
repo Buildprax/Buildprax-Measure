@@ -9,7 +9,7 @@ const GRACE_DAYS = 2
 const ACCESS_TOKEN_MIN = 60
 const REFRESH_TOKEN_DAYS = 30
 const LICENSE_CONFIRM_MESSAGE_1 = 'Trial allowed multiple devices. Paid subscription is limited to one device.'
-const LICENSE_CONFIRM_MESSAGE_2 = 'By continuing, this device becomes your licensed device.'
+const LICENSE_CONFIRM_MESSAGE_2 = 'By continuing, this device becomes your registered device for this subscription.'
 const VERIFY_TOKEN_HOURS = 24
 const RESET_TOKEN_HOURS = 24
 const AUTH_API_PUBLIC_BASE = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api'
@@ -359,13 +359,36 @@ async function sendPasswordResetEmail(email, token) {
   })
 }
 
+function normalizePackageCodeFromDb(code) {
+  const raw = String(code || '').trim().toUpperCase()
+  const aliases = {
+    QUARTZ: 'QTZ',
+    TOPAZ: 'TPZ',
+    EMERALD: 'EMD',
+    SAPPHIRE: 'SAP',
+    RUBY: 'RBY',
+    DIAMOND: 'DMD',
+    QTZ: 'QTZ',
+    TPZ: 'TPZ',
+    EMD: 'EMD',
+    SAP: 'SAP',
+    RBY: 'RBY',
+    DMD: 'DMD',
+  }
+  return aliases[raw] || raw || null
+}
+
 async function getEntitlementStateForUser(userId, trialStartedAt) {
   const s = await pool.query(
     `select s.current_period_end, p.code as package_code
      from subscriptions s
      join subscription_plans sp on sp.id = s.plan_id
      join packages p on p.id = sp.package_id
-     where s.user_id = $1 and lower(s.status) = 'active'
+     where s.user_id = $1
+       and (
+         lower(s.status) in ('active', 'trialing', 'past_due')
+         or (s.current_period_end is not null and s.current_period_end > now() - interval '1 day')
+       )
      order by s.current_period_end desc nulls last, s.updated_at desc
      limit 1`,
     [userId],
@@ -376,7 +399,7 @@ async function getEntitlementStateForUser(userId, trialStartedAt) {
     const periodEnd = new Date(s.rows[0].current_period_end)
     const grace = addDays(periodEnd, GRACE_DAYS)
     const state = now <= periodEnd ? 'paid' : (now <= grace ? 'grace' : 'expired')
-    return { state, packageCode: String(s.rows[0].package_code || '').toUpperCase() || null }
+    return { state, packageCode: normalizePackageCodeFromDb(s.rows[0].package_code) }
   }
 
   const start = trialStartedAt ? new Date(trialStartedAt) : now
@@ -539,7 +562,7 @@ async function login(body) {
         ok: false,
         code: 'LICENSED_DEVICE_MISMATCH',
         message:
-          `This paid subscription is already assigned to another device (${user.licensed_device_label || 'licensed device'}). `
+          `This paid subscription is already assigned to another device (${user.licensed_device_label || 'another device'}). `
           + 'To use this seat on a different computer, contact support@buildprax.com so we can move the licence for you.',
       })
     }
@@ -587,7 +610,7 @@ async function confirmLicensedDevice(body) {
       ok: false,
       code: 'LICENSED_DEVICE_MISMATCH',
       message:
-        `This paid subscription is already assigned to another device (${user.licensed_device_label || 'licensed device'}). `
+        `This paid subscription is already assigned to another device (${user.licensed_device_label || 'another device'}). `
         + 'To use this seat on a different computer, contact support@buildprax.com so we can move the licence for you.',
     })
   }
@@ -759,7 +782,11 @@ async function entitlement(userId) {
      from subscriptions s
      join subscription_plans sp on sp.id = s.plan_id
      join packages p on p.id = sp.package_id
-     where s.user_id = $1 and lower(s.status) = 'active'
+     where s.user_id = $1
+       and (
+         lower(s.status) in ('active', 'trialing', 'past_due')
+         or (s.current_period_end is not null and s.current_period_end > now() - interval '1 day')
+       )
      order by s.current_period_end desc nulls last, s.updated_at desc
      limit 1`,
     [userId],
@@ -772,7 +799,7 @@ async function entitlement(userId) {
   let graceEndsAt = null
 
   if (s.rowCount) {
-    packageCode = String(s.rows[0].package_code || '').toUpperCase()
+    packageCode = normalizePackageCodeFromDb(s.rows[0].package_code)
     paidEndsAt = new Date(s.rows[0].current_period_end).toISOString()
     const grace = addDays(new Date(s.rows[0].current_period_end), GRACE_DAYS)
     graceEndsAt = grace.toISOString()
