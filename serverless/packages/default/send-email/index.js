@@ -242,7 +242,7 @@ What to do next:
 1) Open Buildprax Measure Pro
 2) Sign in with your account email
 3) If needed, use Forgot Password
-4) Confirm Buildprax to be used on this device (each license can be used on one device only)
+4) Confirm Buildprax to be used on this device (each paid subscription is limited to one device)
 5) Access loads automatically from your account
 
 You are also very welcome to join the Buildprax Community Forum to connect with other professionals, explore Marketplace opportunities, view available job vacancies, post vacancies, and promote your products or services:
@@ -268,7 +268,7 @@ ${customerNumber ? `<p>Customer number: ${customerNumber}</p>` : ''}
   <li>Open Buildprax Measure Pro</li>
   <li>Sign in with your account email</li>
   <li>If needed, use Forgot Password</li>
-  <li>Confirm Buildprax to be used on this device (each license can be used on one device only)</li>
+  <li>Confirm Buildprax to be used on this device (each paid subscription is limited to one device)</li>
   <li>Access loads automatically from your account</li>
 </ol>
 <p>You are also very welcome to join the Buildprax Community Forum to connect with other professionals, explore Marketplace opportunities, view available job vacancies, post vacancies, and promote your products or services:<br>
