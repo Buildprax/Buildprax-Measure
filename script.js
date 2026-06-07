@@ -668,12 +668,12 @@ function startDownload() {
     
     if (platform === 'mac') {
         // Updated to latest notarized/stapled release
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_3.0.6.0.dmg';
-        filename = 'BuildpraxMeasurePro_3.0.6.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_3.0.7.0.dmg';
+        filename = 'BuildpraxMeasurePro_3.0.7.0.dmg';
     } else {
         // Default to Mac
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_3.0.6.0.dmg';
-        filename = 'BuildpraxMeasurePro_3.0.6.0.dmg';
+        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_3.0.7.0.dmg';
+        filename = 'BuildpraxMeasurePro_3.0.7.0.dmg';
     }
     
     console.log('Download link:', downloadLink);
@@ -875,6 +875,7 @@ function initializePayPalSubscription() {
 
 // Set up radio button and quantity input change listeners
 document.addEventListener('DOMContentLoaded', function() {
+    retryPendingPaypalActivation();
     // Wait for modal to be available
     setTimeout(function() {
         const planRadios = document.querySelectorAll('input[name="bp_plan"]');
@@ -901,14 +902,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Card payment is now handled by PayPal SDK - no separate function needed
 
-/** POST activation payload to paypal-webhook so DB entitlement matches PayPal checkout. */
+/** POST activation payload to paypal-webhook so DB entitlement matches PayPal checkout. Retries on failure. */
 function activateSubscriptionAfterPaypal(paypalData, details) {
     const subscriptionId = paypalData?.subscriptionID || details?.id || '';
     const planId =
         details?.plan_id ||
         (details?.plan && details.plan.id) ||
+        getSelectedPlanId() ||
         '';
     const subscriber = details?.subscriber || {};
+    const userEmail = subscriber.email_address || (JSON.parse(localStorage.getItem('customerData') || '{}').email || '');
     const providerEventId =
         paypalData?.orderID ||
         paypalData?.subscriptionID ||
@@ -920,21 +923,73 @@ function activateSubscriptionAfterPaypal(paypalData, details) {
             id: subscriptionId,
             plan_id: planId,
             status: details?.status || 'ACTIVE',
-            subscriber: subscriber,
+            subscriber: subscriber.email_address ? subscriber : { email_address: userEmail },
             billing_info: details?.billing_info || {},
         },
     };
+
+    function attempt(remaining) {
+        return fetch(PAYPAL_WEBHOOK_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        }).then(function(response) {
+            return response.json().then(function(body) {
+                if (!response.ok) {
+                    throw new Error(body?.error || body?.message || ('Activation failed (' + response.status + ')'));
+                }
+                try { localStorage.removeItem('bpPendingPaypalActivation'); } catch (e) { /* ignore */ }
+                return body;
+            });
+        }).catch(function(err) {
+            if (remaining <= 1) {
+                try {
+                    localStorage.setItem('bpPendingPaypalActivation', JSON.stringify({
+                        payload: payload,
+                        savedAt: Date.now(),
+                        subscriptionId: subscriptionId,
+                        email: userEmail,
+                    }));
+                } catch (e) { /* ignore */ }
+                throw err;
+            }
+            return new Promise(function(resolve) {
+                setTimeout(resolve, (4 - remaining) * 1500);
+            }).then(function() {
+                return attempt(remaining - 1);
+            });
+        });
+    }
+
+    return attempt(3);
+}
+
+/** Retry activation if a previous checkout succeeded in PayPal but our server call failed. */
+function retryPendingPaypalActivation() {
+    var raw;
+    try { raw = localStorage.getItem('bpPendingPaypalActivation'); } catch (e) { return Promise.resolve(); }
+    if (!raw) return Promise.resolve();
+    var pending;
+    try { pending = JSON.parse(raw); } catch (e) { return Promise.resolve(); }
+    if (!pending || !pending.payload) return Promise.resolve();
+    if (Date.now() - (pending.savedAt || 0) > 7 * 24 * 60 * 60 * 1000) {
+        try { localStorage.removeItem('bpPendingPaypalActivation'); } catch (e) { /* ignore */ }
+        return Promise.resolve();
+    }
     return fetch(PAYPAL_WEBHOOK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(pending.payload),
     }).then(function(response) {
         return response.json().then(function(body) {
-            if (!response.ok) {
-                throw new Error(body?.error || body?.message || ('Activation failed (' + response.status + ')'));
+            if (response.ok) {
+                try { localStorage.removeItem('bpPendingPaypalActivation'); } catch (e) { /* ignore */ }
+                console.log('Recovered pending PayPal activation for', pending.email || pending.subscriptionId);
             }
             return body;
         });
+    }).catch(function(err) {
+        console.warn('Pending PayPal activation retry failed:', err);
     });
 }
 
