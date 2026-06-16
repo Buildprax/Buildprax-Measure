@@ -6,6 +6,9 @@ const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn
 const PAYPAL_WEBHOOK_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/paypal-webhook';
 /** Direct DigitalOcean auth function (desktop apps, local file preview, non-production hosts). */
 const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
+const MAC_DMG_VERSION = '3.0.15.0';
+const MAC_DMG_FILE = `BuildpraxMeasurePro_${MAC_DMG_VERSION}.dmg`;
+const MAC_DMG_URL = `https://buildprax-downloads.sfo3.digitaloceanspaces.com/${MAC_DMG_FILE}`;
 
 /** Same-origin proxy on live site removes cross-origin CORS/SW issues for browser sign-in. */
 function getAuthApiBase() {
@@ -668,12 +671,12 @@ function startDownload() {
     
     if (platform === 'mac') {
         // Updated to latest notarized/stapled release
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_3.0.14.0.dmg';
-        filename = 'BuildpraxMeasurePro_3.0.14.0.dmg';
+        downloadLink = MAC_DMG_URL;
+        filename = MAC_DMG_FILE;
     } else {
         // Default to Mac
-        downloadLink = 'https://buildprax-downloads.sfo3.digitaloceanspaces.com/BuildpraxMeasurePro_3.0.14.0.dmg';
-        filename = 'BuildpraxMeasurePro_3.0.14.0.dmg';
+        downloadLink = MAC_DMG_URL;
+        filename = MAC_DMG_FILE;
     }
     
     console.log('Download link:', downloadLink);
