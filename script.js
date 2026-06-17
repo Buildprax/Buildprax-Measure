@@ -6,7 +6,7 @@ const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn
 const PAYPAL_WEBHOOK_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/paypal-webhook';
 /** Direct DigitalOcean auth function (desktop apps, local file preview, non-production hosts). */
 const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
-const MAC_DMG_VERSION = '3.0.16.0';
+const MAC_DMG_VERSION = '3.0.17.0';
 const MAC_DMG_FILE = `BuildpraxMeasurePro_${MAC_DMG_VERSION}.dmg`;
 const MAC_DMG_URL = `https://buildprax-downloads.sfo3.digitaloceanspaces.com/${MAC_DMG_FILE}`;
 
