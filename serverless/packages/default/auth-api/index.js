@@ -3,6 +3,10 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { Pool } from 'pg'
 import https from 'https'
+import {
+  activatePayPalSubscriptionForEmail,
+  reconcilePayPalSubscriptionsForEmail,
+} from './paypal-reconcile.js'
 
 const TRIAL_DAYS = 14
 const GRACE_DAYS = 2
@@ -27,7 +31,39 @@ const pool = new Pool({
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
   ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
+  // Serverless: one connection per warm instance — avoids exhausting managed Postgres slots.
+  max: process.env.PG_POOL_MAX ? Number(process.env.PG_POOL_MAX) : 1,
+  idleTimeoutMillis: process.env.PG_IDLE_TIMEOUT_MS ? Number(process.env.PG_IDLE_TIMEOUT_MS) : 5000,
+  connectionTimeoutMillis: process.env.PG_CONNECT_TIMEOUT_MS ? Number(process.env.PG_CONNECT_TIMEOUT_MS) : 5000,
+  allowExitOnIdle: true,
 })
+
+function isDbCapacityError(err) {
+  const msg = String(err?.message || err || '').toLowerCase()
+  return (
+    msg.includes('remaining connection slots')
+    || msg.includes('too many clients')
+    || msg.includes('connection terminated')
+    || msg.includes('timeout expired')
+    || msg.includes('econnrefused')
+  )
+}
+
+function publicErrorFromThrowable(err, fallback = 'Something went wrong. Please try again.') {
+  if (isDbCapacityError(err)) {
+    return {
+      status: 503,
+      body: {
+        ok: false,
+        code: 'DATABASE_UNAVAILABLE',
+        message:
+          'The Buildprax account database is temporarily unavailable. '
+          + 'This is not caused by your password or how often you sign in. Please try again in a few minutes.',
+      },
+    }
+  }
+  return { status: 500, body: { ok: false, code: 'SERVER_ERROR', message: fallback } }
+}
 
 function json(statusCode, body) {
   let text = ''
@@ -91,6 +127,55 @@ function parseBody(args) {
   }
   if (typeof body === 'object') return body
   return {}
+}
+
+/** DO Functions web actions often drop JSON body for /me/* paths — merge all known sources. */
+function parseFeedbackBody(args) {
+  const sources = [parseBody(args)]
+  const http = args?.http || {}
+  if (http.body != null && http.body !== sources[0]) {
+    if (typeof http.body === 'string') {
+      try { sources.push(JSON.parse(http.body)) } catch { /* ignore */ }
+    } else if (typeof http.body === 'object') {
+      sources.push(http.body)
+    }
+  }
+  if (args?.__ow_body != null) {
+    if (typeof args.__ow_body === 'string') {
+      try { sources.push(JSON.parse(args.__ow_body)) } catch { /* ignore */ }
+    } else if (typeof args.__ow_body === 'object') {
+      sources.push(args.__ow_body)
+    }
+  }
+  const merged = Object.assign({}, ...sources.filter((s) => s && typeof s === 'object'))
+  for (const key of ['type', 'testimonial', 'choice', 'note', 'useName', 'displayName', 'platform', 'appVersion']) {
+    if (merged[key] == null && args?.[key] != null) merged[key] = args[key]
+  }
+  return merged
+}
+
+async function ensureFeedbackSchema() {
+  await pool.query(`
+    create table if not exists app_feedback_submissions (
+      id bigserial primary key,
+      user_id uuid references app_users(id) on delete set null,
+      account_email text not null,
+      feedback_type text not null,
+      payload jsonb not null default '{}'::jsonb,
+      email_sent boolean not null default false,
+      email_error text,
+      created_at timestamptz not null default now()
+    );
+  `)
+  await pool.query(`create index if not exists idx_app_feedback_user on app_feedback_submissions(user_id);`)
+  await pool.query(`create index if not exists idx_app_feedback_created on app_feedback_submissions(created_at desc);`)
+}
+
+function normalizeEmailInput(email) {
+  const raw = String(email || '').trim()
+  const angle = raw.match(/<([^>]+@[^>]+)>/)
+  if (angle) return angle[1].trim().toLowerCase()
+  return raw.toLowerCase()
 }
 
 function readToken(args) {
@@ -186,7 +271,23 @@ function addDays(date, days) {
   return d
 }
 
+let schemaEnsured = false
+let schemaEnsurePromise = null
+
 async function ensureSchema() {
+  if (schemaEnsured) return
+  if (!schemaEnsurePromise) {
+    schemaEnsurePromise = ensureSchemaOnce().then(() => {
+      schemaEnsured = true
+    }).catch((e) => {
+      schemaEnsurePromise = null
+      throw e
+    })
+  }
+  await schemaEnsurePromise
+}
+
+async function ensureSchemaOnce() {
   await pool.query(`
     create table if not exists auth_sessions (
       id bigserial primary key,
@@ -378,35 +479,101 @@ function normalizePackageCodeFromDb(code) {
   return aliases[raw] || raw || null
 }
 
-async function getEntitlementStateForUser(userId, trialStartedAt) {
+/** Latest subscription row for user (any status) — period dates are authoritative for paid/grace. */
+async function fetchLatestSubscriptionRowForUser(userId) {
   const s = await pool.query(
-    `select s.current_period_end, p.code as package_code
+    `select s.current_period_end, s.status, s.updated_at, p.code as package_code
      from subscriptions s
      join subscription_plans sp on sp.id = s.plan_id
      join packages p on p.id = sp.package_id
      where s.user_id = $1
-       and (
-         lower(s.status) in ('active', 'trialing', 'past_due')
-         or (s.current_period_end is not null and s.current_period_end > now() - interval '1 day')
-       )
-     order by s.current_period_end desc nulls last, s.updated_at desc
+     order by
+       case when lower(coalesce(s.status, '')) in ('active', 'trialing', 'past_due') then 0 else 1 end,
+       s.current_period_end desc nulls last,
+       s.updated_at desc
      limit 1`,
     [userId],
   )
+  return s.rowCount ? s.rows[0] : null
+}
 
+function buildEntitlementFromSubscriptionAndTrial(subRow, trialStartedAt) {
   const now = new Date()
-  if (s.rowCount) {
-    const periodEnd = new Date(s.rows[0].current_period_end)
-    const grace = addDays(periodEnd, GRACE_DAYS)
-    const state = now <= periodEnd ? 'paid' : (now <= grace ? 'grace' : 'expired')
-    return { state, packageCode: normalizePackageCodeFromDb(s.rows[0].package_code) }
+  if (subRow?.current_period_end) {
+    const periodEnd = new Date(subRow.current_period_end)
+    if (Number.isFinite(periodEnd.getTime())) {
+      const packageCode = normalizePackageCodeFromDb(subRow.package_code)
+      const paidEndsAt = periodEnd.toISOString()
+      const grace = addDays(periodEnd, GRACE_DAYS)
+      const graceEndsAt = grace.toISOString()
+      let state = 'expired'
+      if (now <= periodEnd) state = 'paid'
+      else if (now <= grace) state = 'grace'
+      return { state, packageCode, paidEndsAt, graceEndsAt, trialEndsAt: null }
+    }
   }
-
   const start = trialStartedAt ? new Date(trialStartedAt) : now
   const trialEndsAt = addDays(start, TRIAL_DAYS)
   const graceEndsAt = addDays(new Date(trialEndsAt), GRACE_DAYS)
   const state = now <= trialEndsAt ? 'trial' : (now <= graceEndsAt ? 'grace' : 'expired')
-  return { state, packageCode: null }
+  return {
+    state,
+    packageCode: null,
+    paidEndsAt: null,
+    graceEndsAt: graceEndsAt.toISOString(),
+    trialEndsAt: trialEndsAt.toISOString(),
+  }
+}
+
+async function getEntitlementStateForUser(userId, trialStartedAt) {
+  const row = await fetchLatestSubscriptionRowForUser(userId)
+  const built = buildEntitlementFromSubscriptionAndTrial(row, trialStartedAt)
+  return { state: built.state, packageCode: built.packageCode }
+}
+
+/** When webhooks are delayed, pull active PayPal subscriptions for this email. */
+async function maybeReconcilePayPalForEmail(email) {
+  if (!email || !String(process.env.PAYPAL_CLIENT_SECRET || '').trim()) return false
+  try {
+    const r = await reconcilePayPalSubscriptionsForEmail(pool, email, 14)
+    return !!r.reconciled
+  } catch (e) {
+    console.warn('[auth-api] PayPal reconcile failed for', email, e?.message || e)
+    return false
+  }
+}
+
+async function activateSubscription(body) {
+  const subscriptionId = String(body.subscriptionId || body.subscription_id || '').trim()
+  const email = normalizeEmailInput(body.email)
+  if (!subscriptionId || !email) {
+    return json(400, { ok: false, code: 'INVALID_INPUT', message: 'subscriptionId and email are required.' })
+  }
+  if (!/^I-[A-Z0-9]+$/i.test(subscriptionId)) {
+    return json(400, { ok: false, code: 'INVALID_INPUT', message: 'Invalid PayPal subscription ID.' })
+  }
+  if (!String(process.env.PAYPAL_CLIENT_SECRET || '').trim()) {
+    return json(503, { ok: false, code: 'PAYPAL_NOT_CONFIGURED', message: 'PayPal is not configured on the server.' })
+  }
+  try {
+    const result = await activatePayPalSubscriptionForEmail(pool, { subscriptionId, email })
+    if (['created', 'updated', 'linked'].includes(result.action)) {
+      return json(200, { ok: true, activated: true, ...result })
+    }
+    return json(422, {
+      ok: false,
+      code: 'ACTIVATION_SKIPPED',
+      message: `Subscription was not activated (${result.action || 'unknown'}).`,
+      ...result,
+    })
+  } catch (e) {
+    console.error('[auth-api] activateSubscription failed:', e?.message || e)
+    return json(500, {
+      ok: false,
+      code: 'ACTIVATION_FAILED',
+      message: String(e?.message || 'Could not activate subscription.'),
+    })
+  }
 }
 
 async function issueSessionTokens(user, rememberMe) {
@@ -435,7 +602,7 @@ async function issueSessionTokens(user, rememberMe) {
 }
 
 async function signup(body) {
-  const email = String(body.email || '').trim().toLowerCase()
+  const email = normalizeEmailInput(body.email)
   const password = String(body.password || '')
   const name = String(body.name || '').trim()
   if (!email || !email.includes('@') || password.length < 6) {
@@ -513,7 +680,7 @@ async function signup(body) {
 }
 
 async function login(body) {
-  const email = String(body.email || '').trim().toLowerCase()
+  const email = normalizeEmailInput(body.email)
   const password = String(body.password || '')
   const rememberMe = !!body.rememberMe
   const deviceFingerprint = String(body.deviceFingerprint || '').trim()
@@ -534,7 +701,13 @@ async function login(body) {
     return json(403, { ok: false, code: 'EMAIL_NOT_VERIFIED', message: 'Please verify your email address before signing in.' })
   }
 
-  const entitlement = await getEntitlementStateForUser(user.id, user.trial_started_at)
+  let entitlement = await getEntitlementStateForUser(user.id, user.trial_started_at)
+  if (entitlement.state !== 'paid') {
+    const reconciled = await maybeReconcilePayPalForEmail(email)
+    if (reconciled) {
+      entitlement = await getEntitlementStateForUser(user.id, user.trial_started_at)
+    }
+  }
   const requiresLicensedDeviceConfirmation = isDesktopClient && (entitlement.state === 'paid' || entitlement.state === 'grace')
 
   if (requiresLicensedDeviceConfirmation) {
@@ -542,22 +715,13 @@ async function login(body) {
       return json(400, { ok: false, code: 'DEVICE_REQUIRED', message: 'Device information is required for paid login.' })
     }
     if (!user.licensed_device_hash) {
-      const preAuthToken = jwt.sign(
-        { sub: String(user.id), email: user.email, typ: 'device_confirm', rememberMe, deviceFingerprint, deviceLabel },
-        tokenSecret(),
-        { expiresIn: '10m' },
+      // First paid sign-in on this seat: register the device immediately so desktop apps
+      // that cannot handle the preAuthToken confirmation step still receive session tokens.
+      await pool.query(
+        `update app_users set licensed_device_hash = $2, licensed_device_label = $3, licensed_device_confirmed_at = now() where id = $1`,
+        [user.id, deviceFingerprint, deviceLabel || null],
       )
-      return json(200, {
-        ok: false,
-        code: 'LICENSED_DEVICE_CONFIRMATION_REQUIRED',
-        confirmationRequired: true,
-        message: LICENSE_CONFIRM_MESSAGE_1,
-        confirmationLine1: LICENSE_CONFIRM_MESSAGE_1,
-        confirmationLine2: LICENSE_CONFIRM_MESSAGE_2,
-        preAuthToken,
-      })
-    }
-    if (user.licensed_device_hash !== deviceFingerprint) {
+    } else if (user.licensed_device_hash !== deviceFingerprint) {
       return json(423, {
         ok: false,
         code: 'LICENSED_DEVICE_MISMATCH',
@@ -672,7 +836,7 @@ async function verifyEmailByTokenString(token) {
 }
 
 async function resendVerification(body) {
-  const email = String(body.email || '').trim().toLowerCase()
+  const email = normalizeEmailInput(body.email)
   if (!email || !email.includes('@')) return json(400, { ok: false, code: 'INVALID_INPUT', message: 'Please enter a valid email.' })
   const r = await pool.query(`select id, email, email_verified from app_users where email = $1`, [email])
   if (!r.rowCount) return json(200, { ok: true })
@@ -688,7 +852,7 @@ async function resendVerification(body) {
 }
 
 async function requestPasswordReset(body) {
-  const email = String(body.email || '').trim().toLowerCase()
+  const email = normalizeEmailInput(body.email)
   if (!email) return json(200, { ok: true })
   const r = await pool.query(`select id, email from app_users where email = $1`, [email])
   if (!r.rowCount) return json(200, { ok: true })
@@ -777,39 +941,21 @@ async function entitlement(userId) {
   )
   if (!u.rowCount) return json(404, { ok: false, code: 'NOT_FOUND', message: 'User not found.' })
   const user = u.rows[0]
-  const s = await pool.query(
-    `select s.current_period_end, s.status, p.code as package_code
-     from subscriptions s
-     join subscription_plans sp on sp.id = s.plan_id
-     join packages p on p.id = sp.package_id
-     where s.user_id = $1
-       and (
-         lower(s.status) in ('active', 'trialing', 'past_due')
-         or (s.current_period_end is not null and s.current_period_end > now() - interval '1 day')
-       )
-     order by s.current_period_end desc nulls last, s.updated_at desc
-     limit 1`,
-    [userId],
-  )
-  const now = new Date()
-  let state = 'expired'
-  let packageCode = null
-  let trialEndsAt = null
-  let paidEndsAt = null
-  let graceEndsAt = null
-
-  if (s.rowCount) {
-    packageCode = normalizePackageCodeFromDb(s.rows[0].package_code)
-    paidEndsAt = new Date(s.rows[0].current_period_end).toISOString()
-    const grace = addDays(new Date(s.rows[0].current_period_end), GRACE_DAYS)
-    graceEndsAt = grace.toISOString()
-    state = now <= new Date(s.rows[0].current_period_end) ? 'paid' : (now <= grace ? 'grace' : 'expired')
-  } else {
-    const start = user.trial_started_at ? new Date(user.trial_started_at) : now
-    trialEndsAt = addDays(start, TRIAL_DAYS).toISOString()
-    graceEndsAt = addDays(new Date(trialEndsAt), GRACE_DAYS).toISOString()
-    state = now <= new Date(trialEndsAt) ? 'trial' : (now <= new Date(graceEndsAt) ? 'grace' : 'expired')
+  let subRow = await fetchLatestSubscriptionRowForUser(userId)
+  let built = buildEntitlementFromSubscriptionAndTrial(subRow, user.trial_started_at)
+  if (built.state !== 'paid') {
+    const reconciled = await maybeReconcilePayPalForEmail(user.email)
+    if (reconciled) {
+      subRow = await fetchLatestSubscriptionRowForUser(userId)
+      built = buildEntitlementFromSubscriptionAndTrial(subRow, user.trial_started_at)
+    }
   }
+  const now = new Date()
+  const state = built.state
+  const packageCode = built.packageCode
+  const trialEndsAt = built.trialEndsAt
+  const paidEndsAt = built.paidEndsAt
+  const graceEndsAt = built.graceEndsAt
 
   const m = {
     QTZ: { measure: true, boq: false, certificates: false, feasibility: false },
@@ -831,6 +977,140 @@ async function entitlement(userId) {
   })
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+async function submitFeedback(userId, body) {
+  const type = String(body?.type || '').trim()
+  const platform = String(body?.platform || 'unknown').slice(0, 64)
+  const appVersion = String(body?.appVersion || '').slice(0, 64)
+  const userRow = await pool.query(`select email from app_users where id = $1 limit 1`, [userId])
+  const accountEmail = userRow.rows[0]?.email || 'unknown'
+  const fromEmail = process.env.FROM_EMAIL || 'support@buildprax.com'
+  const supportEmail = process.env.SUPPORT_EMAIL || 'support@buildprax.com'
+  const notifyEmail = String(process.env.FEEDBACK_NOTIFY_EMAIL || '').trim()
+
+  await ensureFeedbackSchema()
+  const insert = await pool.query(
+    `insert into app_feedback_submissions (user_id, account_email, feedback_type, payload)
+     values ($1, $2, $3, $4::jsonb)
+     returning id`,
+    [userId, accountEmail, type || 'unknown', JSON.stringify(body || {})],
+  )
+  const submissionId = insert.rows[0]?.id
+
+  let subject = ''
+  let textBody = ''
+  let htmlBody = ''
+
+  if (type === 'trial-survey') {
+    const choice = String(body?.choice || '').trim().slice(0, 500)
+    const note = String(body?.note || '').trim().slice(0, 4000)
+    if (!choice) return json(400, { ok: false, code: 'MISSING_CHOICE', message: 'Feedback choice is required.' })
+    subject = 'Buildprax trial feedback'
+    textBody = [
+      'Trial feedback (day 7+)',
+      '',
+      `Account: ${accountEmail}`,
+      `Platform: ${platform}`,
+      `App version: ${appVersion}`,
+      `Choice: ${choice}`,
+      ...(note ? [`Note: ${note}`] : []),
+      '',
+      'Sent from Buildprax Measure Pro',
+    ].join('\n')
+    htmlBody = `
+      <div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+        <p><strong>Trial feedback (day 7+)</strong></p>
+        <p>Account: ${escapeHtml(accountEmail)}<br>
+        Platform: ${escapeHtml(platform)}<br>
+        App version: ${escapeHtml(appVersion)}</p>
+        <p><strong>Choice:</strong> ${escapeHtml(choice)}</p>
+        ${note ? `<p><strong>Note:</strong> ${escapeHtml(note)}</p>` : ''}
+        <p>Sent from Buildprax Measure Pro</p>
+      </div>
+    `
+  } else if (type === 'subscriber-testimonial') {
+    const testimonial = String(body?.testimonial || '').trim().slice(0, 8000)
+    const useName = !!body?.useName
+    const displayName = String(body?.displayName || '').trim().slice(0, 200)
+    if (!testimonial) return json(400, { ok: false, code: 'MISSING_TESTIMONIAL', message: 'Testimonial text is required.' })
+    if (useName && !displayName) {
+      return json(400, { ok: false, code: 'MISSING_NAME', message: 'Display name is required when sharing your name.' })
+    }
+    subject = 'Buildprax subscriber testimonial'
+    textBody = [
+      'Subscriber testimonial',
+      '',
+      `Account: ${accountEmail}`,
+      `Platform: ${platform}`,
+      `App version: ${appVersion}`,
+      `May use name on website: ${useName ? 'Yes' : 'No (anonymous)'}`,
+      ...(useName && displayName ? [`Name: ${displayName}`] : []),
+      '',
+      'Testimonial:',
+      testimonial,
+      '',
+      'Sent from Buildprax Measure Pro',
+    ].join('\n')
+    htmlBody = `
+      <div style="font-family: Aptos, Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #111;">
+        <p><strong>Subscriber testimonial</strong></p>
+        <p>Account: ${escapeHtml(accountEmail)}<br>
+        Platform: ${escapeHtml(platform)}<br>
+        App version: ${escapeHtml(appVersion)}<br>
+        May use name on website: ${useName ? 'Yes' : 'No (anonymous)'}${useName && displayName ? `<br>Name: ${escapeHtml(displayName)}` : ''}</p>
+        <p><strong>Testimonial:</strong></p>
+        <p style="white-space: pre-wrap;">${escapeHtml(testimonial)}</p>
+        <p>Sent from Buildprax Measure Pro</p>
+      </div>
+    `
+  } else {
+    return json(400, { ok: false, code: 'INVALID_TYPE', message: 'Invalid feedback type.' })
+  }
+
+  const toList = [{ email: supportEmail }]
+  const personalization = { to: toList, subject }
+  if (notifyEmail && notifyEmail.toLowerCase() !== supportEmail.toLowerCase()) {
+    personalization.bcc = [{ email: notifyEmail }]
+  }
+
+  try {
+    await sendGridEmail({
+      personalizations: [personalization],
+      from: { email: fromEmail, name: 'Buildprax Measure Pro' },
+      reply_to: { email: accountEmail, name: 'Buildprax User' },
+      categories: ['buildprax-feedback', type],
+      content: [
+        { type: 'text/plain', value: textBody },
+        { type: 'text/html', value: htmlBody },
+      ],
+      tracking_settings: {
+        click_tracking: { enable: false, enable_text: false },
+        open_tracking: { enable: false },
+      },
+    })
+    if (submissionId) {
+      await pool.query(`update app_feedback_submissions set email_sent = true where id = $1`, [submissionId])
+    }
+  } catch (err) {
+    if (submissionId) {
+      await pool.query(
+        `update app_feedback_submissions set email_error = $2 where id = $1`,
+        [submissionId, String(err?.message || err).slice(0, 500)],
+      )
+    }
+    throw err
+  }
+
+  return json(200, { ok: true, submissionId })
+}
+
 async function authUser(args) {
   const at = readToken(args)
   if (!at) return null
@@ -845,7 +1125,6 @@ async function authUser(args) {
 export async function main(args) {
   try {
     if (args.http?.method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders, body: '' }
-    await ensureSchema()
     const p = basePath(args)
     const body = parseBody(args)
     const method = String(args.http?.method || 'POST').toUpperCase()
@@ -873,6 +1152,11 @@ export async function main(args) {
       })
     }
 
+    // Production tables already exist — never run DDL on the hot path (it exhausts DB connections).
+    if (process.env.AUTH_ENSURE_SCHEMA === '1') {
+      await ensureSchema()
+    }
+
     if (method === 'POST' && p.endsWith('/auth/signup')) return signup(body)
     // `/auth/session` mirrors `/auth/login` so browsers/SW caches cannot serve a stale OPTIONS 204 for the POST URL.
     if (method === 'POST' && (p.endsWith('/auth/login') || p.endsWith('/auth/session'))) return login(body)
@@ -894,6 +1178,7 @@ export async function main(args) {
     if (method === 'POST' && p.endsWith('/auth/reset-password')) return resetPassword(body)
     if (method === 'POST' && p.endsWith('/auth/device-license/confirm')) return confirmLicensedDevice(body)
     if (method === 'POST' && p.endsWith('/auth/refresh')) return refresh(body)
+    if (method === 'POST' && p.endsWith('/auth/subscription/activate')) return activateSubscription(body)
 
     if ((method === 'GET' || method === 'POST') && (p.endsWith('/me/entitlement') || p.endsWith('/auth/entitlement'))) {
       const userId = await authUser(args)
@@ -901,14 +1186,17 @@ export async function main(args) {
       return entitlement(userId)
     }
 
+    if (method === 'POST' && (p.endsWith('/me/feedback') || p.endsWith('/auth/feedback'))) {
+      const userId = await authUser(args)
+      if (!userId) return json(401, { ok: false, code: 'TOKEN_EXPIRED', message: 'Access token expired.' })
+      return submitFeedback(userId, parseFeedbackBody(args))
+    }
+
     return json(404, { ok: false, code: 'NOT_FOUND', message: `Route not found: ${method} ${p}` })
   } catch (err) {
-    return json(500, {
-      ok: false,
-      code: 'SERVER_ERROR',
-      message: err?.message || 'Unhandled auth-api error.',
-    })
+    const pub = publicErrorFromThrowable(err, 'Unhandled auth-api error.')
+    return json(pub.status, pub.body)
   }
 }
 
-// force redeploy Sat 11 Apr 2026 — basePath strips ?query so POST /auth/session?cb= matches
+// force redeploy Wed 17 Jun 2026 — PayPal checkout activate + login reconcile
