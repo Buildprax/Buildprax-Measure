@@ -905,41 +905,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Card payment is now handled by PayPal SDK - no separate function needed
 
-/** POST activation payload to paypal-webhook so DB entitlement matches PayPal checkout. Retries on failure. */
+/** POST to auth-api so DB entitlement matches PayPal checkout (live PayPal API, not webhook replay). */
 function activateSubscriptionAfterPaypal(paypalData, details) {
     const subscriptionId = paypalData?.subscriptionID || details?.id || '';
-    const planId =
-        details?.plan_id ||
-        (details?.plan && details.plan.id) ||
-        getSelectedPlanId() ||
-        '';
     const subscriber = details?.subscriber || {};
     const userEmail = subscriber.email_address || (JSON.parse(localStorage.getItem('customerData') || '{}').email || '');
-    const providerEventId =
-        paypalData?.orderID ||
-        paypalData?.subscriptionID ||
-        ('checkout-' + Date.now());
-    const payload = {
-        id: providerEventId,
-        event_type: 'BILLING.SUBSCRIPTION.ACTIVATED',
-        resource: {
-            id: subscriptionId,
-            plan_id: planId,
-            status: details?.status || 'ACTIVE',
-            subscriber: subscriber.email_address ? subscriber : { email_address: userEmail },
-            billing_info: details?.billing_info || {},
-        },
-    };
+    const activateBody = { subscriptionId: subscriptionId, email: userEmail };
+    const activateUrl = getAuthApiBase() + '/auth/subscription/activate';
 
     function attempt(remaining) {
-        return fetch(PAYPAL_WEBHOOK_ENDPOINT, {
+        return fetch(activateUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(activateBody),
         }).then(function(response) {
             return response.json().then(function(body) {
-                if (!response.ok) {
-                    throw new Error(body?.error || body?.message || ('Activation failed (' + response.status + ')'));
+                if (!response.ok || body?.ok === false) {
+                    throw new Error(body?.message || body?.error || ('Activation failed (' + response.status + ')'));
                 }
                 try { localStorage.removeItem('bpPendingPaypalActivation'); } catch (e) { /* ignore */ }
                 return body;
@@ -948,10 +930,9 @@ function activateSubscriptionAfterPaypal(paypalData, details) {
             if (remaining <= 1) {
                 try {
                     localStorage.setItem('bpPendingPaypalActivation', JSON.stringify({
-                        payload: payload,
-                        savedAt: Date.now(),
                         subscriptionId: subscriptionId,
                         email: userEmail,
+                        savedAt: Date.now(),
                     }));
                 } catch (e) { /* ignore */ }
                 throw err;
@@ -974,15 +955,21 @@ function retryPendingPaypalActivation() {
     if (!raw) return Promise.resolve();
     var pending;
     try { pending = JSON.parse(raw); } catch (e) { return Promise.resolve(); }
-    if (!pending || !pending.payload) return Promise.resolve();
+    if (!pending || (!pending.subscriptionId && !pending.payload)) return Promise.resolve();
     if (Date.now() - (pending.savedAt || 0) > 7 * 24 * 60 * 60 * 1000) {
         try { localStorage.removeItem('bpPendingPaypalActivation'); } catch (e) { /* ignore */ }
         return Promise.resolve();
     }
-    return fetch(PAYPAL_WEBHOOK_ENDPOINT, {
+    var retryBody = pending.subscriptionId
+        ? { subscriptionId: pending.subscriptionId, email: pending.email || '' }
+        : {
+            subscriptionId: pending.payload?.resource?.id || pending.subscriptionId || '',
+            email: pending.email || pending.payload?.resource?.subscriber?.email_address || '',
+        };
+    return fetch(getAuthApiBase() + '/auth/subscription/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pending.payload),
+        body: JSON.stringify(retryBody),
     }).then(function(response) {
         return response.json().then(function(body) {
             if (response.ok) {
