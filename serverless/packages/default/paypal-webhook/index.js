@@ -12,6 +12,11 @@
  */
 
 const { Pool } = require('pg');
+const {
+  getPayPalAccessToken,
+  fetchPayPalSubscription,
+  readNextBillingTime,
+} = require('./paypal-api');
 
 // Email configuration
 const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/send-email';
@@ -37,6 +42,31 @@ function jsonResponse(statusCode, payload) {
     },
     body: JSON.stringify(payload),
   };
+}
+
+/** DigitalOcean Functions may pass the POST body in several shapes (same as auth-api). */
+function parseWebhookBody(args) {
+  if (!args || typeof args !== 'object') return {};
+  if (args.event_type || args.resource) return args;
+  const raw =
+    args?.http?.body ??
+    args?.body ??
+    args?.__ow_body ??
+    args?.value ??
+    (typeof args?.http?.content === 'string' ? args.http.content : null);
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  const text = String(raw).trim();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    try {
+      return JSON.parse(Buffer.from(text, 'base64').toString('utf8'));
+    } catch {
+      return {};
+    }
+  }
 }
 
 function parseIsoDate(value) {
@@ -107,7 +137,22 @@ function pickPaymentTime(resource) {
  * New period end = payment time + one billing cycle (matches PayPal "next payment due"),
  * NOT "existing DB period end + another cycle" (that double-extends).
  */
+async function billingCycleForPaypalPlanId(client, paypalPlanId) {
+  if (!paypalPlanId) return null;
+  const pr = await client.query(
+    `select bc.code as billing_cycle
+       from subscription_plans sp
+       join billing_cycles bc on bc.id = sp.billing_cycle_id
+      where lower(sp.paypal_plan_id::text) = lower($1::text)
+      limit 1`,
+    [paypalPlanId],
+  );
+  return pr.rowCount ? pr.rows[0].billing_cycle : null;
+}
+
 async function inferPeriodEndFromSubscription(client, subscriptionId, email, resource) {
+  const paymentTime = pickPaymentTime(resource);
+
   const r = await client.query(
     `select bc.code as billing_cycle
        from subscriptions s
@@ -120,10 +165,29 @@ async function inferPeriodEndFromSubscription(client, subscriptionId, email, res
       limit 1`,
     [subscriptionId || null, email || null],
   );
-  if (!r.rowCount) return null;
-  const paymentTime = pickPaymentTime(resource);
-  const periodEnd = periodEndFromBillingCycle(paymentTime, r.rows[0].billing_cycle);
-  return endOfUtcDay(periodEnd);
+  if (r.rowCount) {
+    return endOfUtcDay(periodEndFromBillingCycle(paymentTime, r.rows[0].billing_cycle));
+  }
+
+  // First-time payers (e.g. expired trial, no subscriptions row yet) — derive cycle from PayPal plan_id.
+  let billingCycle = await billingCycleForPaypalPlanId(client, resource?.plan_id);
+  if (!billingCycle && subscriptionId) {
+    try {
+      const token = await getPayPalAccessToken();
+      const fetched = await fetchPayPalSubscription(token, subscriptionId);
+      if (fetched.ok) {
+        const next = readNextBillingTime(fetched.body);
+        if (next) return endOfUtcDay(parseIsoDate(next));
+        billingCycle = await billingCycleForPaypalPlanId(client, fetched.body?.plan_id);
+      }
+    } catch (e) {
+      console.warn('inferPeriodEnd PayPal API fallback failed:', e.message || e);
+    }
+  }
+  if (billingCycle) {
+    return endOfUtcDay(periodEndFromBillingCycle(paymentTime, billingCycle));
+  }
+  return null;
 }
 
 function asText(value) {
@@ -313,6 +377,80 @@ async function resolvePlanIdByPayPalPlanId(client, paypalPlanId) {
   return r.rowCount ? r.rows[0].id : null;
 }
 
+/**
+ * Paying customers must be able to sign in immediately. A successful PayPal
+ * activation/renewal is proof of a real, owned email, so confirm it here even if
+ * the customer never clicked the verification link. Only flips false → true.
+ */
+async function markEmailVerifiedForActivePayer(client, email) {
+  if (!email) return 0;
+  const r = await client.query(
+    `update app_users
+        set email_verified = true,
+            updated_at = now()
+      where lower(email) = lower($1)
+        and coalesce(email_verified, false) = false`,
+    [email],
+  );
+  if (r.rowCount) {
+    console.log('Auto-verified email for paying customer:', email);
+  }
+  return r.rowCount || 0;
+}
+
+async function assignCustomerNumberIfMissing(client, email) {
+  if (!email) return null;
+  const r = await client.query(
+    `select id, customer_number from app_users where lower(email) = lower($1) limit 1`,
+    [email],
+  );
+  if (!r.rowCount) return null;
+  if (r.rows[0].customer_number) return r.rows[0].customer_number;
+  const next = await client.query(
+    `select coalesce(max(cast(substring(customer_number from 4) as int)), 100) + 1 as n
+       from app_users where customer_number ~ '^BMP[0-9]+$'`,
+  );
+  const customerNumber = `BMP${String(next.rows[0].n).padStart(6, '0')}`;
+  await client.query(
+    `update app_users set customer_number = $2, updated_at = now() where id = $1`,
+    [r.rows[0].id, customerNumber],
+  );
+  return customerNumber;
+}
+
+/** When webhook payload omits plan_id, ask PayPal directly (common on PAYMENT.SALE.COMPLETED). */
+async function enrichResourceFromPayPalApi(subscriptionId, resource) {
+  if (!subscriptionId) return resource;
+  const needsPlan = !resource?.plan_id;
+  const needsEmail = !resource?.subscriber?.email_address;
+  const needsBilling = !readNextBillingTime(resource);
+  if (!needsPlan && !needsEmail && !needsBilling) return resource;
+
+  try {
+    const token = await getPayPalAccessToken();
+    const fetched = await fetchPayPalSubscription(token, subscriptionId);
+    if (!fetched.ok) return resource;
+    const pp = fetched.body;
+    return {
+      ...resource,
+      id: resource?.id || pp.id,
+      plan_id: resource?.plan_id || pp.plan_id,
+      status: resource?.status || pp.status,
+      subscriber: resource?.subscriber?.email_address
+        ? resource.subscriber
+        : pp.subscriber || resource?.subscriber,
+      billing_info: {
+        ...(pp.billing_info || {}),
+        ...(resource?.billing_info || {}),
+        next_billing_time: readNextBillingTime(resource) || readNextBillingTime(pp),
+      },
+    };
+  } catch (e) {
+    console.warn('PayPal API enrich failed (continuing with webhook payload):', e.message || e);
+    return resource;
+  }
+}
+
 async function getSubscriptionRowId(client, subscriptionId, email) {
   if (subscriptionId) {
     const r = await client.query(
@@ -373,6 +511,20 @@ async function markBillingEventProcessed(client, billingEventId, subscriptionRow
   );
 }
 
+async function releasePaypalSubscriptionIdFromOtherUsers(client, subscriptionId, email) {
+  if (!subscriptionId || !email) return;
+  await client.query(
+    `update subscriptions s
+        set paypal_subscription_id = concat('released-', s.paypal_subscription_id, '-', floor(extract(epoch from now()))::bigint),
+            updated_at = now()
+      from app_users u
+     where s.user_id = u.id
+       and lower(s.paypal_subscription_id::text) = lower($1::text)
+       and lower(u.email) <> lower($2::text)`,
+    [subscriptionId, email],
+  );
+}
+
 async function updateSubscriptionEntitlement(client, opts) {
   const { subscriptionId, email, periodStart, periodEnd, planId } = opts;
   const subCols = await tableColumns(client, 'subscriptions');
@@ -394,23 +546,28 @@ async function updateSubscriptionEntitlement(client, opts) {
 
   let updated = 0;
 
-  // Primary: update by PayPal subscription ID across likely schema variants.
-  if (subscriptionId) {
-    const subscriptionIdCols = [
-      'paypal_subscription_id',
-      'provider_subscription_id',
-      'external_subscription_id',
-      'subscription_id',
-      'paypal_id',
-    ].filter((c) => subCols.has(c));
+  // Primary: keep the app account already tied to this PayPal subscription ID.
+  if (subscriptionId && subCols.has('paypal_subscription_id')) {
+    const idIdx = values.length + 1;
+    const sql = `update subscriptions set ${setParts.join(', ')}
+                  where lower(paypal_subscription_id::text) = lower($${idIdx}::text)
+                     or paypal_subscription_id ~* ('^released-' || $${idIdx}::text || '-')`;
+    const r = await client.query(sql, [...values, subscriptionId]);
+    updated += r.rowCount || 0;
+  }
 
-    for (const idCol of subscriptionIdCols) {
-      const whereIdx = values.push(subscriptionId);
-      const sql = `update subscriptions set ${setParts.join(', ')} where lower(${idCol}::text) = lower($${whereIdx}::text)`;
-      const r = await client.query(sql, values);
-      updated += r.rowCount || 0;
-      if (updated > 0) break;
+  // Secondary: payer email for first-time linkage when no row owns this PayPal ID yet.
+  if (updated === 0 && email) {
+    if (subscriptionId && subCols.has('paypal_subscription_id')) {
+      await releasePaypalSubscriptionIdFromOtherUsers(client, subscriptionId, email);
     }
+    const idxEmail = values.length + 1;
+    const sql = `update subscriptions s set ${setParts.join(', ')}
+                  from app_users u
+                 where s.user_id = u.id
+                   and lower(u.email) = lower($${idxEmail}::text)`;
+    const r = await client.query(sql, [...values, email]);
+    updated += r.rowCount || 0;
   }
 
   // Fallback A: update by email if subscriptions table stores payer/subscriber email directly.
@@ -430,14 +587,20 @@ async function updateSubscriptionEntitlement(client, opts) {
     }
   }
 
-  // Fallback B removed intentionally: fragile dynamic SQL path could abort the transaction.
-  // We now rely on:
-  // 1) direct update by PayPal subscription id, and
-  // 2) create-on-miss using (email + PayPal plan id).
-
   if (updated === 0 && email) {
     const userId = await resolveUserIdByEmail(client, email);
-    const resolvedPlanId = planId || null;
+    let resolvedPlanId = planId || null;
+    if (!resolvedPlanId && subscriptionId) {
+      try {
+        const token = await getPayPalAccessToken();
+        const fetched = await fetchPayPalSubscription(token, subscriptionId);
+        if (fetched.ok && fetched.body?.plan_id) {
+          resolvedPlanId = await resolvePlanIdByPayPalPlanId(client, fetched.body.plan_id);
+        }
+      } catch (e) {
+        console.warn('Could not resolve plan from PayPal API for insert-on-miss:', e.message || e);
+      }
+    }
     if (userId && resolvedPlanId) {
       const insertCols = ['user_id', 'plan_id', 'status'];
       const insertVals = [userId, resolvedPlanId, 'active'];
@@ -559,8 +722,15 @@ async function main(args) {
   console.log('PayPal webhook received:', JSON.stringify(args, null, 2));
   
   try {
-    // Parse webhook event
-    const webhookEvent = args.http?.body ? JSON.parse(args.http.body) : args;
+    let webhookEvent = parseWebhookBody(args);
+    if (!webhookEvent?.event_type) {
+      console.error('PayPal webhook: unparseable or empty body', {
+        hasHttp: !!args?.http,
+        bodyType: typeof args?.http?.body,
+        keys: args && typeof args === 'object' ? Object.keys(args).slice(0, 12) : [],
+      });
+      return jsonResponse(400, { ok: false, error: 'Invalid or missing PayPal webhook JSON body' });
+    }
     
     // Verify webhook signature (IMPORTANT for security)
     // TODO: Implement PayPal webhook signature verification
@@ -640,6 +810,10 @@ async function main(args) {
     }
 
     if (isRenewalLikeEvent) {
+      let resource = webhookEvent.resource || {};
+      resource = await enrichResourceFromPayPalApi(subscriptionId, resource);
+      webhookEvent = { ...webhookEvent, resource };
+
       const subscriber = resource?.subscriber;
       let email =
         subscriber?.email_address ||
@@ -705,6 +879,10 @@ async function main(args) {
         }
 
         await client.query('begin');
+        if (email) {
+          await assignCustomerNumberIfMissing(client, email);
+          await markEmailVerifiedForActivePayer(client, email);
+        }
         const preSubscriptionRowId = await getSubscriptionRowId(client, subscriptionId, email);
         if (!preSubscriptionRowId && !isFirstActivation) {
           // Keep renewals resilient: if activation was missed, downstream upsert path can still
