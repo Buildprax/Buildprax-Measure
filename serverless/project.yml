@@ -2,134 +2,23 @@ packages:
   - name: default
     functions:
       - name: auth-api
-        main: main
+        main: index.js
         runtime: nodejs:18
         web: true
-        environment:
-          DATABASE_URL: "postgresql://buildprax_app:AVNS_J4BuzAoXmptmreV52EJ@buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com:25060/buildprax?sslmode=require&uselibpqcompat=true"
-          PGHOST: "buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com"
-          PGPORT: "25060"
-          PGUSER: "buildprax_app"
-          PGPASSWORD: "AVNS_J4BuzAoXmptmreV52EJ"
-          PGDATABASE: "buildprax"
-          PGSSLMODE: "require"
-          AUTH_JWT_SECRET: "Ve2xT9oAayXbXo9dy1OCo5olXAOrLRJaBaRXqCy5YEqYZegW/ls7LnWYhYiPF6oU"
-          SENDGRID_API_KEY: "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"
-          FROM_EMAIL: "support@buildprax.com"
-          SUPPORT_EMAIL: "support@buildprax.com"
-          FEEDBACK_NOTIFY_EMAIL: "cfviljoen@gmail.com"
-          APP_BASE_URL: "https://buildprax.com"
-          PAYPAL_CLIENT_ID: "Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn"
-          PAYPAL_CLIENT_SECRET: "EMvLEgz3TadoGg4XkiSTGD6QXeBKxFaUQdp4eV2QQnMoNerenBPxJuyuFErJlKNeCd93B7p19J3idcpg"
-          PAYPAL_MODE: "live"
         limits:
-          timeout: 30000
+          timeout: 10000
           memory: 256
       - name: paypal-webhook
-        main: main
+        main: index.js
         runtime: nodejs:18
         web: true
-        environment:
-          DATABASE_URL: "postgresql://buildprax_app:AVNS_J4BuzAoXmptmreV52EJ@buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com:25060/buildprax?sslmode=require&uselibpqcompat=true"
-          PGHOST: "buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com"
-          PGPORT: "25060"
-          PGUSER: "buildprax_app"
-          PGPASSWORD: "AVNS_J4BuzAoXmptmreV52EJ"
-          PGDATABASE: "buildprax"
-          PGSSLMODE: "require"
-          PAYPAL_CLIENT_ID: "Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn"
-          PAYPAL_CLIENT_SECRET: "EMvLEgz3TadoGg4XkiSTGD6QXeBKxFaUQdp4eV2QQnMoNerenBPxJuyuFErJlKNeCd93B7p19J3idcpg"
-          PAYPAL_MODE: "live"
-          SENDGRID_API_KEY: "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"
-          FROM_EMAIL: "support@buildprax.com"
-          SUPPORT_EMAIL: "support@buildprax.com"
-          FEEDBACK_NOTIFY_EMAIL: "cfviljoen@gmail.com"
         limits:
-          timeout: 30000
-          memory: 256
-      - name: paypal-subscription-sync
-        main: main
-        runtime: nodejs:18
-        web: false
-        environment:
-          DATABASE_URL: "postgresql://buildprax_app:AVNS_J4BuzAoXmptmreV52EJ@buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com:25060/buildprax?sslmode=require&uselibpqcompat=true"
-          PGHOST: "buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com"
-          PGPORT: "25060"
-          PGUSER: "buildprax_app"
-          PGPASSWORD: "AVNS_J4BuzAoXmptmreV52EJ"
-          PGDATABASE: "buildprax"
-          PGSSLMODE: "require"
-          PAYPAL_CLIENT_ID: "Ad8V-wLHWToU2zWSMUcoiwWd0jGuCHdfbFAgymG7rjywpdFSf7s4RFbnAelcJOa_vWXJTrbVDoDo2nWn"
-          PAYPAL_CLIENT_SECRET: "EMvLEgz3TadoGg4XkiSTGD6QXeBKxFaUQdp4eV2QQnMoNerenBPxJuyuFErJlKNeCd93B7p19J3idcpg"
-          PAYPAL_MODE: "live"
-        triggers:
-          - name: paypal-subscription-sync-every-2-hours
-            sourceType: scheduler
-            sourceDetails:
-              cron: "*/10 * * * *"
-        limits:
-          timeout: 30000
+          timeout: 10000
           memory: 256
       - name: send-email
-        main: main
+        main: index.js
         runtime: nodejs:18
         web: true
-        environment:
-          DATABASE_URL: "postgresql://buildprax_app:AVNS_J4BuzAoXmptmreV52EJ@buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com:25060/buildprax?sslmode=require&uselibpqcompat=true"
-          PGHOST: "buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com"
-          PGPORT: "25060"
-          PGUSER: "buildprax_app"
-          PGPASSWORD: "AVNS_J4BuzAoXmptmreV52EJ"
-          PGDATABASE: "buildprax"
-          PGSSLMODE: "require"
-          SENDGRID_API_KEY: "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"
-          FROM_EMAIL: "support@buildprax.com"
-          SUPPORT_EMAIL: "support@buildprax.com"
-          FEEDBACK_NOTIFY_EMAIL: "cfviljoen@gmail.com"
-          APP_BASE_URL: "https://buildprax.com"
-        limits:
-          timeout: 10000
-          memory: 256
-
-      - name: followup-email-scheduler
-        main: main
-        runtime: nodejs:18
-        web: false
-        environment:
-          DATABASE_URL: "postgresql://buildprax_app:AVNS_J4BuzAoXmptmreV52EJ@buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com:25060/buildprax?sslmode=require&uselibpqcompat=true"
-          PGHOST: "buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com"
-          PGPORT: "25060"
-          PGUSER: "buildprax_app"
-          PGPASSWORD: "AVNS_J4BuzAoXmptmreV52EJ"
-          PGDATABASE: "buildprax"
-          PGSSLMODE: "require"
-        triggers:
-          - name: followup-email-every-minute
-            sourceType: scheduler
-            sourceDetails:
-              cron: "* * * * *"
-        limits:
-          timeout: 10000
-          memory: 256
-
-      - name: trial-survey-scheduler
-        main: main
-        runtime: nodejs:18
-        web: false
-        environment:
-          DATABASE_URL: "postgresql://buildprax_app:AVNS_J4BuzAoXmptmreV52EJ@buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com:25060/buildprax?sslmode=require&uselibpqcompat=true"
-          PGHOST: "buildprax-prod-db-do-user-28187014-0.f.db.ondigitalocean.com"
-          PGPORT: "25060"
-          PGUSER: "buildprax_app"
-          PGPASSWORD: "AVNS_J4BuzAoXmptmreV52EJ"
-          PGDATABASE: "buildprax"
-          PGSSLMODE: "require"
-          TRIAL_DAYS: "14"
-        triggers:
-          - name: trial-survey-daily
-            sourceType: scheduler
-            sourceDetails:
-              cron: "0 6 * * *"
         limits:
           timeout: 10000
           memory: 256
