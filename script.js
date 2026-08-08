@@ -6,7 +6,7 @@ const EMAIL_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn
 const PAYPAL_WEBHOOK_ENDPOINT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/paypal-webhook';
 /** Direct DigitalOcean auth function (desktop apps, local file preview, non-production hosts). */
 const AUTH_API_DIRECT = 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api';
-const MAC_DMG_VERSION = '4.0.5.0';
+const MAC_DMG_VERSION = '4.0.6.0';
 const MAC_DMG_FILE = `BuildpraxMeasurePro_${MAC_DMG_VERSION}.dmg`;
 const MAC_DMG_URL = `https://buildprax-downloads.sfo3.digitaloceanspaces.com/${MAC_DMG_FILE}`;
 
@@ -772,9 +772,10 @@ function initializePayPalSubscription() {
                 return actions.subscription.get().then(function(details) {
                     console.log('Subscription details:', details);
                     
-                    // Get customer email from subscription details
-                    const subscriber = details.subscriber;
-                    const userEmail = subscriber && subscriber.email_address ? subscriber.email_address : '';
+                    const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
+                    const subscriber = details.subscriber || {};
+                    // Prefer the email they entered on the Buildprax checkout form.
+                    const userEmail = (customerData.email || subscriber.email_address || '').trim().toLowerCase();
                     
                     if (!userEmail) {
                         console.error('No email found in subscription details');
@@ -796,11 +797,26 @@ function initializePayPalSubscription() {
                     }
                     const additionalLicenses = key === 'yearly' ? Math.max(0, quantity - 1) : 0;
 
+                    showMessage('Payment received — confirming your Buildprax subscription…', 'success');
+
                     // Activate entitlement immediately (do not rely on PayPal webhook delivery alone).
-                    activateSubscriptionAfterPaypal(data, details)
+                    return activateSubscriptionAfterPaypal(data, details)
                         .then(function(activation) {
-                            if (!activation?.ok) {
-                                console.warn('Subscription activation returned non-ok:', activation);
+                            closePaymentModal();
+                            const renewalPeriod = subscriptionType === 'monthly' ? 'month' : subscriptionType === 'quarterly' ? '3 months' : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 'year';
+                            if (activation?.pendingSignup) {
+                                showMessage(
+                                    `Payment received for ${userEmail}. Create your Buildprax account (or sign in) with this same email to unlock Diamond/Quartz access. Subscription ID: ${data.subscriptionID}`,
+                                    'success'
+                                );
+                            } else if (activation?.ok || activation?.activated) {
+                                showMessage(`Subscription successful! Your account is now active. Sign in inside Buildprax Measure Pro with ${userEmail}. Your subscription renews every ${renewalPeriod} until you cancel in PayPal.`, 'success');
+                            } else {
+                                showMessage(
+                                    'Payment received. We could not confirm activation automatically — please contact support@buildprax.com with your PayPal subscription ID: '
+                                    + data.subscriptionID,
+                                    'error'
+                                );
                             }
                             sendPurchaseConfirmationEmail(userEmail, {
                                 id: data.subscriptionID,
@@ -811,24 +827,18 @@ function initializePayPalSubscription() {
                         })
                         .catch(function(activationErr) {
                             console.error('Subscription activation failed:', activationErr);
+                            closePaymentModal();
                             showMessage(
                                 'Payment received. We could not confirm activation automatically — please contact support@buildprax.com with your PayPal subscription ID: '
                                 + data.subscriptionID,
                                 'error'
                             );
                         });
-
-                    // Close modal
-                    closePaymentModal();
-
-                    // Show success message
-                    const renewalPeriod = subscriptionType === 'monthly' ? 'month' : subscriptionType === 'quarterly' ? '3 months' : subscriptionType === 'half-yearly' || subscriptionType === 'halfyearly' ? '6 months' : 'year';
-                    showMessage(`Subscription successful! Your account is now active. Check your email for sign-in instructions. Sign in inside Buildprax Measure Pro with ${userEmail}. Your subscription renews every ${renewalPeriod} until you cancel in PayPal.`, 'success');
                 }).catch(function(err) {
                     console.error('Error getting subscription details:', err);
                     // Still process the subscription even if details fetch fails
                     const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
-                    const userEmail = customerData.email || '';
+                    const userEmail = (customerData.email || '').trim().toLowerCase();
                     if (userEmail) {
                         const key = getSelectedPlanKey();
                         const subscriptionType = key === 'halfyearly' ? 'half-yearly' : key;
@@ -840,7 +850,26 @@ function initializePayPalSubscription() {
                         }
                         const additionalLicenses = key === 'yearly' ? Math.max(0, quantity - 1) : 0;
                         
-                        activateSubscriptionAfterPaypal(data, { status: 'ACTIVE', subscriber: { email_address: userEmail } })
+                        showMessage('Payment received — confirming your Buildprax subscription…', 'success');
+                        return activateSubscriptionAfterPaypal(data, { status: 'ACTIVE', subscriber: { email_address: userEmail } })
+                            .then(function(activation) {
+                                closePaymentModal();
+                                if (activation?.pendingSignup) {
+                                    showMessage(
+                                        `Payment received for ${userEmail}. Create your Buildprax account (or sign in) with this same email to unlock access. Subscription ID: ${data.subscriptionID}`,
+                                        'success'
+                                    );
+                                } else {
+                                    showMessage(`Subscription successful! Sign in in the app with ${userEmail}.`, 'success');
+                                }
+                            })
+                            .catch(function() {
+                                closePaymentModal();
+                                showMessage(
+                                    'Payment received. Please contact support@buildprax.com with subscription ID: ' + data.subscriptionID,
+                                    'error'
+                                );
+                            })
                             .finally(function() {
                                 sendPurchaseConfirmationEmail(userEmail, {
                                     id: data.subscriptionID,
@@ -849,8 +878,6 @@ function initializePayPalSubscription() {
                                     type: 'subscription'
                                 }, subscriptionType, additionalLicenses, quantity, packageCode);
                             });
-                        closePaymentModal();
-                        showMessage(`Subscription successful! Check your email for sign-in instructions, then sign in in the app with ${userEmail}.`, 'success');
                     }
                 });
             },
@@ -909,7 +936,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function activateSubscriptionAfterPaypal(paypalData, details) {
     const subscriptionId = paypalData?.subscriptionID || details?.id || '';
     const subscriber = details?.subscriber || {};
-    const userEmail = subscriber.email_address || (JSON.parse(localStorage.getItem('customerData') || '{}').email || '');
+    const customerData = JSON.parse(localStorage.getItem('customerData') || '{}');
+    const userEmail = String(customerData.email || subscriber.email_address || '').trim().toLowerCase();
     const activateBody = { subscriptionId: subscriptionId, email: userEmail };
     const activateUrl = getAuthApiBase() + '/auth/subscription/activate';
 
