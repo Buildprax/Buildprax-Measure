@@ -66,7 +66,9 @@ function normalizeIncomingPath(full) {
   if (pathOnly === '/healthz' || pathOnly === '/healthz/') {
     return `${PREFIX}/healthz${qs}`
   }
-  if (pathOnly.startsWith('/auth')) {
+  // Ingress strips /api/auth — restore so /auth/* and /me/* forward to auth-api.
+  // Without /me/*, desktop entitlement checks (GET /me/entitlement) return HTTP 404 after login.
+  if (pathOnly.startsWith('/auth') || pathOnly.startsWith('/me')) {
     return `${PREFIX}${pathOnly}${qs}`
   }
   return full
