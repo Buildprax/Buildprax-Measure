@@ -2,7 +2,8 @@
   "name": "buildprax-send-email",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "main": "index.js",
-  "dependencies": {}
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
 }

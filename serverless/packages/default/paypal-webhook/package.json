@@ -4,6 +4,6 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
-    "@sendgrid/mail": "^8.1.0"
+    "pg": "^8.16.3"
   }
 }
