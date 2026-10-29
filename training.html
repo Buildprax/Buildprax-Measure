@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buildprax Training Courses</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <style>
+    :root { --navy: #0b1f33; --gold: #c4a15a; --green: #1f7a4d; --paper: #f7f4ef; --ink: #1c2430; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Georgia, "Times New Roman", serif; background: var(--paper); color: var(--ink); }
+    header { background: var(--navy); color: white; padding: 22px 8vw; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    header a { color: white; text-decoration: none; font-family: Arial, sans-serif; font-size: 14px; }
+    h1 { font-size: 28px; margin: 0 0 6px; }
+    main { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+    .card { background: white; border: 1px solid #e4dccb; border-radius: 12px; padding: 24px; margin-bottom: 18px; }
+    .warn { background: #fff6df; border: 1px solid var(--gold); padding: 14px 16px; border-radius: 8px; }
+    label { display: block; font-family: Arial, sans-serif; font-size: 13px; margin: 14px 0 6px; }
+    input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #cfc6b4; border-radius: 8px; }
+    button, .btn { background: var(--navy); color: white; border: 0; border-radius: 8px; padding: 12px 18px; font-size: 16px; cursor: pointer; font-family: Arial, sans-serif; }
+    button.secondary { background: white; color: var(--navy); border: 1px solid var(--navy); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button { background: #efe8da; color: var(--navy); }
+    .tabs button.on { background: var(--navy); color: white; }
+    video { width: 100%; background: black; border-radius: 8px; }
+    .q { padding: 14px 0; border-top: 1px solid #eee; }
+    .choice { display: block; margin: 8px 0; font-family: Arial, sans-serif; }
+    .wrong { background: #fff5f5; border-left: 4px solid #9b2c2c; padding: 12px 14px; margin: 10px 0; }
+    .ok { color: var(--green); font-family: Arial, sans-serif; }
+    .muted { color: #5c6570; font-family: Arial, sans-serif; line-height: 1.5; }
+    .error { color: #9b2c2c; font-family: Arial, sans-serif; }
+    h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div style="font-family: Arial, sans-serif; letter-spacing: 0.12em; font-size: 12px; color: #c4a15a;">BUILDPRAX</div>
+      <h1>Training Courses</h1>
+    </div>
+    <a href="/">Back to buildprax.com</a>
+  </header>
+  <main>
+    <section id="gate" class="card">
+      <p class="muted">Four lessons, from measurement through estimates and feasibility. Pass each test with 12 out of 15, and the certificate is issued in the name you enter here.</p>
+      <div class="tabs">
+        <button type="button" id="tab-enrol" class="on">Enrol</button>
+        <button type="button" id="tab-enter">I have a course number</button>
+      </div>
+      <form id="enrol-form">
+        <div class="warn"><strong>Type your name exactly as it must appear on the certificate.</strong> It cannot be changed after you enrol.</div>
+        <label for="name">Full name</label>
+        <input id="name" name="name" autocomplete="name" required>
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" autocomplete="email" required>
+        <label for="country">Country</label>
+        <input id="country" name="country" autocomplete="country-name" required>
+        <div class="row"><button type="submit">Email me my course number</button></div>
+      </form>
+      <form id="enter-form" hidden>
+        <label for="course-number">Course number</label>
+        <input id="course-number" name="courseNumber" placeholder="BP-TRAIN-2026-000001" required>
+        <label for="enter-email">Email address</label>
+        <input id="enter-email" name="email" type="email" required>
+        <div class="row"><button type="submit">Continue the course</button></div>
+      </form>
+      <p id="gate-message" class="muted"></p>
+    </section>
+
+    <section id="course" hidden>
+      <div class="card">
+        <p class="muted" id="who"></p>
+        <h2 id="heading"></h2>
+        <div id="lesson"></div>
+        <div id="ready" hidden>
+          <p>Are you ready for the next course?</p>
+          <p class="muted">You can leave now and come back with your course number. You will return to this question. You can watch this lesson again, or start the next course. A lesson you have already passed stays passed.</p>
+          <div class="row">
+            <button type="button" id="start-next">Yes, start the next course</button>
+            <button type="button" id="watch-again" class="secondary">Watch this lesson again</button>
+          </div>
+        </div>
+        <div id="done" hidden>
+          <p class="ok">You have completed the four courses.</p>
+          <div id="certificate"></div>
+        </div>
+        <div id="result"></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const host = String(location.hostname || '').toLowerCase()
+    const API = (host === 'buildprax.com' || host === 'www.buildprax.com')
+      ? 'https://buildprax.com/api/auth/auth/training'
+      : 'https://faas-syd1-c274eac6.doserverless.co/api/v1/web/fn-2ec741fb-b50c-4391-994a-0fd583e5fd49/default/auth-api/auth/training'
+    const KEY = 'buildprax-training-token'
+    const titles = {
+      1: 'Course 1 — Measure',
+      2: 'Course 2 — Bill of quantities',
+      3: 'Course 3 — Pricing, comparison, and certificates',
+      4: 'Course 4 — Estimates and feasibilities',
+    }
+
+    const gate = document.getElementById('gate')
+    const course = document.getElementById('course')
+    const gateMessage = document.getElementById('gate-message')
+
+    document.getElementById('tab-enrol').onclick = () => showTab('enrol')
+    document.getElementById('tab-enter').onclick = () => showTab('enter')
+    function showTab(which) {
+      document.getElementById('enrol-form').hidden = which !== 'enrol'
+      document.getElementById('enter-form').hidden = which !== 'enter'
+      document.getElementById('tab-enrol').classList.toggle('on', which === 'enrol')
+      document.getElementById('tab-enter').classList.toggle('on', which === 'enter')
+    }
+
+    async function post(action, payload) {
+      const response = await fetch(`${API}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || data.ok === false) throw new Error(data.message || 'Something went wrong.')
+      return data
+    }
+
+    document.getElementById('enrol-form').onsubmit = async (event) => {
+      event.preventDefault()
+      gateMessage.className = 'muted'
+      gateMessage.textContent = 'Sending your course number…'
+      try {
+        const data = await post('enrol', {
+          fullName: document.getElementById('name').value,
+          email: document.getElementById('email').value,
+          country: document.getElementById('country').value,
+        })
+        gateMessage.textContent = data.message
+      } catch (error) {
+        gateMessage.className = 'error'
+        gateMessage.textContent = error.message
+      }
+    }
+
+    document.getElementById('enter-form').onsubmit = async (event) => {
+      event.preventDefault()
+      gateMessage.className = 'muted'
+      gateMessage.textContent = 'Opening your course…'
+      try {
+        const data = await post('enter', {
+          courseNumber: document.getElementById('course-number').value,
+          email: document.getElementById('enter-email').value,
+        })
+        sessionStorage.setItem(KEY, data.token)
+        render(data)
+      } catch (error) {
+        gateMessage.className = 'error'
+        gateMessage.textContent = error.message
+      }
+    }
+
+    function render(state, result) {
+      gate.hidden = true
+      course.hidden = false
+      document.getElementById('who').textContent = `${state.learner.fullName} · ${state.learner.courseNumber}`
+      const lesson = document.getElementById('lesson')
+      const ready = document.getElementById('ready')
+      const done = document.getElementById('done')
+      const resultBox = document.getElementById('result')
+      lesson.innerHTML = ''
+      ready.hidden = true
+      done.hidden = true
+      resultBox.innerHTML = result ? resultHtml(result) : ''
+
+      if (state.place === 'graduated') {
+        document.getElementById('heading').textContent = 'Certificate'
+        done.hidden = false
+        const cert = state.certificate
+        document.getElementById('certificate').innerHTML = `
+          <p>This certificate is issued to <strong>${escapeHtml(cert.name)}</strong>.</p>
+          <p class="muted">Certificate number ${escapeHtml(cert.courseNumber)}. The name is the one entered at enrolment.</p>
+          <canvas id="certificate-canvas" style="width:100%;height:auto;border:1px solid #e4dccb;border-radius:8px;"></canvas>
+          <div class="row"><button type="button" id="download-certificate">Download certificate</button></div>`
+        drawCertificate(cert)
+        return
+      }
+
+      if (state.place === 'ready') {
+        document.getElementById('heading').textContent = 'Are you ready for the next course?'
+        ready.hidden = false
+        document.getElementById('start-next').onclick = async () => {
+          render(await post('continue', { token: state.token, courseNo: state.fromCourse }))
+        }
+        document.getElementById('watch-again').onclick = async () => {
+          render(await post('rewatch', { token: state.token, courseNo: state.fromCourse }))
+        }
+        return
+      }
+
+      const item = state.lesson
+      document.getElementById('heading').textContent = titles[item.courseNo] || item.title
+      const video = document.createElement('video')
+      video.controls = true
+      video.preload = 'metadata'
+      video.src = item.videoUrl
+      video.addEventListener('ended', async () => {
+        const next = await post('video-finished', { token: state.token, courseNo: item.courseNo })
+        render(next)
+      })
+      lesson.appendChild(video)
+      const actions = document.createElement('div')
+      actions.className = 'row'
+      const testButton = document.createElement('button')
+      testButton.type = 'button'
+      testButton.textContent = item.passed ? 'Take the test again' : 'Start the test'
+      testButton.disabled = !item.videoCompleted && !item.passed
+      testButton.onclick = () => beginTest(state.token, item.courseNo)
+      actions.appendChild(testButton)
+      if (!item.videoCompleted && !item.passed) {
+        const note = document.createElement('p')
+        note.className = 'muted'
+        note.textContent = 'The test opens when the lesson has played to the end.'
+        lesson.appendChild(note)
+      }
+      lesson.appendChild(actions)
+    }
+
+    async function beginTest(token, courseNo) {
+      const paper = await post('start-test', { token, courseNo })
+      const lesson = document.getElementById('lesson')
+      lesson.innerHTML = `<p class="muted">Answer 15 questions. 12 correct is a pass. The questions and the order of the answers are chosen at random.</p>`
+      const form = document.createElement('form')
+      paper.questions.forEach((question, index) => {
+        const block = document.createElement('div')
+        block.className = 'q'
+        block.innerHTML = `<strong>${index + 1}. ${escapeHtml(question.prompt)}</strong>`
+        question.choices.forEach((choice) => {
+          const label = document.createElement('label')
+          label.className = 'choice'
+          label.innerHTML = `<input type="radio" name="${question.id}" value="${choice.id}"> ${escapeHtml(choice.text)}`
+          block.appendChild(label)
+        })
+        form.appendChild(block)
+      })
+      const submit = document.createElement('button')
+      submit.type = 'submit'
+      submit.textContent = 'Submit the test'
+      form.appendChild(submit)
+      form.onsubmit = async (event) => {
+        event.preventDefault()
+        const answers = paper.questions.map((question) => {
+          const selected = form.querySelector(`input[name="${question.id}"]:checked`)
+          return { questionId: question.id, choiceId: selected ? selected.value : '' }
+        })
+        const marked = await post('submit-test', { token, attemptId: paper.attemptId, answers })
+        render(marked, marked.result)
+      }
+      lesson.appendChild(form)
+    }
+
+    function resultHtml(result) {
+      const headline = result.passed
+        ? `You scored ${result.correctCount} out of ${result.questionCount}. That is a pass.`
+        : `You scored ${result.correctCount} out of ${result.questionCount}. Watch the lesson again, then take a new test.`
+      const wrong = (result.wrong || []).map((item) => `
+        <div class="wrong">
+          <div>${escapeHtml(item.prompt)}</div>
+          <p class="muted">Your answer: ${escapeHtml(item.yourAnswer)}</p>
+          <p>Correct answer: ${escapeHtml(item.correctAnswer)}</p>
+        </div>`).join('')
+      return `<h3>${headline}</h3>${wrong}`
+    }
+
+    function formatCertDate(iso) {
+      const date = new Date(iso)
+      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Johannesburg' })
+    }
+
+    function drawCertificate(cert) {
+      const canvas = document.getElementById('certificate-canvas')
+      const image = new Image()
+      image.onload = () => {
+        canvas.width = image.width
+        canvas.height = image.height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(image, 0, 0)
+        ctx.fillStyle = '#faf7f3'
+        ctx.fillRect(430, 292, 760, 86)
+        ;[[564, 598], [608, 644], [652, 690], [698, 730]].forEach(([y0, y1]) => ctx.fillRect(836, y0, 140, y1 - y0))
+        ctx.fillStyle = '#f5e0ba'
+        ctx.fillRect(836, 742, 140, 40)
+        ctx.fillStyle = '#faf7f3'
+        ctx.fillRect(1118, 694, 280, 28)
+        ctx.fillRect(1118, 762, 280, 28)
+        ctx.fillStyle = '#041a30'
+        ctx.textBaseline = 'middle'
+        ctx.textAlign = 'center'
+        ctx.font = 'italic 54px Didot, "Palatino Linotype", Georgia, serif'
+        ctx.fillText(cert.name, 800, 334)
+        ctx.font = '600 18px "Helvetica Neue", Helvetica, Arial, sans-serif'
+        const scores = (cert.results || []).map((row) => `${row.percent}%`)
+        ;[582, 626, 670, 714].forEach((y, index) => ctx.fillText(scores[index] || '', 906, y))
+        ctx.font = '700 28px "Helvetica Neue", Helvetica, Arial, sans-serif'
+        ctx.fillText(`${cert.overall}%`, 906, 762)
+        ctx.textAlign = 'left'
+        ctx.font = '15px "Helvetica Neue", Helvetica, Arial, sans-serif'
+        ctx.fillText(cert.courseNumber, 1126, 707)
+        ctx.fillText(formatCertDate(cert.date), 1126, 776)
+        document.getElementById('download-certificate').onclick = () => {
+          const link = document.createElement('a')
+          link.href = canvas.toDataURL('image/png')
+          link.download = `${cert.courseNumber}.png`
+          link.click()
+        }
+      }
+      image.src = 'certificate-template.png'
+    }
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[char]))
+    }
+
+    const saved = sessionStorage.getItem(KEY)
+    if (saved) {
+      post('resume', { token: saved }).then(render).catch(() => sessionStorage.removeItem(KEY))
+    }
+  </script>
+</body>
+</html>
