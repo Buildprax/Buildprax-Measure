@@ -26,7 +26,8 @@
     .tabs button.on { background: var(--navy); color: white; }
     video { width: 100%; background: black; border-radius: 8px; }
     .q { padding: 14px 0; border-top: 1px solid #eee; }
-    .choice { display: block; margin: 8px 0; font-family: Arial, sans-serif; }
+    .choice { display: flex; align-items: flex-start; gap: 10px; margin: 10px 0; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.45; cursor: pointer; }
+    .choice input { width: 18px; height: 18px; margin: 2px 0 0; padding: 0; flex: 0 0 auto; accent-color: var(--navy); }
     .wrong { background: #fff5f5; border-left: 4px solid #9b2c2c; padding: 12px 14px; margin: 10px 0; }
     .ok { color: var(--green); font-family: Arial, sans-serif; }
     .muted { color: #5c6570; font-family: Arial, sans-serif; line-height: 1.5; }
@@ -182,8 +183,26 @@
           <p>This certificate is issued to <strong>${escapeHtml(cert.name)}</strong>.</p>
           <p class="muted">Certificate number ${escapeHtml(cert.courseNumber)}. The name is the one entered at enrolment.</p>
           <canvas id="certificate-canvas" style="width:100%;height:auto;border:1px solid #e4dccb;border-radius:8px;"></canvas>
-          <div class="row"><button type="button" id="download-certificate">Download certificate</button></div>`
+          <div class="row">
+            <button type="button" id="download-png" disabled>Download PNG</button>
+            <button type="button" id="download-pdf" disabled>Download PDF</button>
+            <button type="button" id="watch-videos" class="secondary">Watch videos</button>
+            <button type="button" id="take-test-again" class="secondary">Take the test again</button>
+          </div>
+          <div id="cert-chooser"></div>`
         drawCertificate(cert)
+        document.getElementById('watch-videos').onclick = () => {
+          showCourseChooser('Choose a course to watch.', async (courseNo) => {
+            render(await post('rewatch', { token: state.token, courseNo }))
+          })
+        }
+        document.getElementById('take-test-again').onclick = () => {
+          showCourseChooser('Choose a course to take again.', async (courseNo) => {
+            await beginTest(state.token, courseNo)
+            document.getElementById('done').hidden = true
+            document.getElementById('heading').textContent = titles[courseNo]
+          })
+        }
         return
       }
 
@@ -218,6 +237,16 @@
       testButton.disabled = !item.videoCompleted && !item.passed
       testButton.onclick = () => beginTest(state.token, item.courseNo)
       actions.appendChild(testButton)
+      if (state.learner.graduatedAt && item.rewatching) {
+        const back = document.createElement('button')
+        back.type = 'button'
+        back.className = 'secondary'
+        back.textContent = 'Back to certificate'
+        back.onclick = async () => {
+          render(await post('video-finished', { token: state.token, courseNo: item.courseNo }))
+        }
+        actions.appendChild(back)
+      }
       if (!item.videoCompleted && !item.passed) {
         const note = document.createElement('p')
         note.className = 'muted'
@@ -225,6 +254,31 @@
         lesson.appendChild(note)
       }
       lesson.appendChild(actions)
+    }
+
+    function showCourseChooser(label, onPick) {
+      const box = document.getElementById('cert-chooser')
+      box.innerHTML = ''
+      const note = document.createElement('p')
+      note.className = 'muted'
+      note.textContent = label
+      box.appendChild(note)
+      const row = document.createElement('div')
+      row.className = 'row'
+      ;[1, 2, 3, 4].forEach((courseNo) => {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.className = 'secondary'
+        button.textContent = titles[courseNo]
+        button.onclick = () => {
+          Promise.resolve(onPick(courseNo)).catch((error) => {
+            note.className = 'error'
+            note.textContent = error.message
+          })
+        }
+        row.appendChild(button)
+      })
+      box.appendChild(row)
     }
 
     async function beginTest(token, courseNo) {
@@ -308,14 +362,78 @@
         ctx.font = '15px "Helvetica Neue", Helvetica, Arial, sans-serif'
         ctx.fillText(cert.courseNumber, 1126, 707)
         ctx.fillText(formatCertDate(cert.date), 1126, 776)
-        document.getElementById('download-certificate').onclick = () => {
-          const link = document.createElement('a')
-          link.href = canvas.toDataURL('image/png')
-          link.download = `${cert.courseNumber}.png`
-          link.click()
-        }
+        Promise.all([
+          canvasBlob(canvas, 'image/png'),
+          canvasBlob(canvas, 'image/jpeg', 0.92).then((jpeg) => jpegPdf(jpeg, canvas.width, canvas.height)),
+        ]).then(([png, pdf]) => {
+          const pngButton = document.getElementById('download-png')
+          const pdfButton = document.getElementById('download-pdf')
+          if (!pngButton || !pdfButton) return
+          pngButton.textContent = `Download PNG (${fileSize(png.size)})`
+          pdfButton.textContent = `Download PDF (${fileSize(pdf.size)})`
+          pngButton.disabled = false
+          pdfButton.disabled = false
+          pngButton.onclick = () => saveBlob(png, `${cert.courseNumber}.png`)
+          pdfButton.onclick = () => saveBlob(pdf, `${cert.courseNumber}.pdf`)
+        })
       }
       image.src = 'certificate-template.png'
+    }
+
+    function canvasBlob(canvas, type, quality) {
+      return new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+    }
+
+    function fileSize(bytes) {
+      if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
+      return `${Math.max(1, Math.round(bytes / 1024))} KB`
+    }
+
+    function saveBlob(blob, name) {
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = name
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+    }
+
+    function jpegPdf(jpegBlob, width, height) {
+      return jpegBlob.arrayBuffer().then((buffer) => {
+        const jpeg = new Uint8Array(buffer)
+        const pageW = 792
+        const pageH = Math.round((pageW * height) / width)
+        const encoder = new TextEncoder()
+        const chunks = []
+        let length = 0
+        const add = (part) => {
+          const bytes = typeof part === 'string' ? encoder.encode(part) : part
+          chunks.push(bytes)
+          length += bytes.length
+        }
+        const offsets = [0]
+        add('%PDF-1.4\n')
+        const startObject = (body) => {
+          offsets.push(length)
+          add(body)
+        }
+        startObject('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n')
+        startObject('2 0 obj\n<< /Type /Pages /Count 1 /Kids [3 0 R] >>\nendobj\n')
+        startObject(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents 4 0 R /Resources << /XObject << /Im 5 0 R >> >> >>\nendobj\n`)
+        const draw = `q\n${pageW} 0 0 ${pageH} 0 0 cm\n/Im Do\nQ\n`
+        startObject(`4 0 obj\n<< /Length ${encoder.encode(draw).length} >>\nstream\n${draw}endstream\nendobj\n`)
+        offsets.push(length)
+        add(`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`)
+        add(jpeg)
+        add('\nendstream\nendobj\n')
+        const xrefAt = length
+        let xref = `xref\n0 6\n0000000000 65535 f \n`
+        for (let index = 1; index <= 5; index += 1) {
+          xref += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`
+        }
+        add(xref)
+        add(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF`)
+        return new Blob(chunks, { type: 'application/pdf' })
+      })
     }
 
     function escapeHtml(value) {
